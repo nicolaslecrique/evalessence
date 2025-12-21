@@ -1,5 +1,7 @@
+from typing import NewType
 from pydantic import BaseModel
 from abc import abstractmethod, ABC 
+
 
 class SampleInput(ABC, BaseModel, frozen=True):
     pass
@@ -13,37 +15,44 @@ class SampleResult(ABC, BaseModel, frozen=True):
 class SampleComparison(ABC, BaseModel, frozen=True):
     pass
 
-class ExperienceConfig(BaseModel, frozen=True):
+class ExperimentConfig(BaseModel, frozen=True):
     pass
 
-class ExperienceData(BaseModel, frozen=True):
+class ExperimentData(BaseModel, frozen=True):
     pass
 
 class AggregatedResult(BaseModel, frozen=True):
     pass
 
+ExperimentId = NewType('ExperimentId', str)
 
-
-class Evaluation[
+class EvaluationPipeline[
     TSampleInput: SampleInput,
     TSampleAnnotation: SampleAnnotation,
     TSampleResult: SampleResult,
     TSampleComparison: SampleComparison,
-    TExperienceConfig: ExperienceConfig,
-    TExperienceData: ExperienceData,
+    TExperimentConfig: ExperimentConfig,
+    TExperimentData: ExperimentData,
     ](ABC):
 
     @abstractmethod
-    def runExperience(
+    def init_experiment(
         self,
-        config: TExperienceConfig,
-        data: TExperienceData,
-        inputs: list[TSampleInput],
-    ) -> list[TSampleResult]:
+        config: TExperimentConfig,
+        data: TExperimentData
+        ) -> ExperimentId:
         pass
 
     @abstractmethod
-    def evaluateResult(
+    def run_sample(
+        self,
+        experiment_id: ExperimentId,
+        input: TSampleInput,
+    ) -> TSampleResult:
+        pass
+
+    @abstractmethod
+    def evaluate_result(
         self,
         input: TSampleInput,
         annotation: TSampleAnnotation,
@@ -51,8 +60,12 @@ class Evaluation[
         pass
 
     @abstractmethod
-    def computeAggregatedResult(
+    def aggregate_results(
         self,
         comparisons: list[TSampleComparison],
     ) -> AggregatedResult:
         pass
+
+
+
+
