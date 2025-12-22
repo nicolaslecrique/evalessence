@@ -2,31 +2,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import AsyncIterator, NewType, Protocol
 from pydantic import BaseModel
-from abc import abstractmethod, ABC
-
-
-class SampleInput(BaseModel, frozen=True):
-    pass
-
-
-class SampleAnnotation(BaseModel, frozen=True):
-    pass
-
-
-class SampleResult(BaseModel, frozen=True):
-    pass
-
-
-class SampleEvaluation(BaseModel, frozen=True):
-    pass
-
-
-class ExperimentConfig(BaseModel, frozen=True):
-    pass
-
-
-class ExperimentData(BaseModel, frozen=True):
-    pass
+from abc import abstractmethod
 
 
 class AggregatedResult(BaseModel, frozen=True):
@@ -38,10 +14,10 @@ class FloatResult(AggregatedResult, frozen=True):
 
 
 class Sample[
-    TSampleInput: SampleInput,
-    TSampleAnnotation: SampleAnnotation,
-    TSampleResult: SampleResult,
-    TSampleEvaluation: SampleEvaluation,
+    TSampleInput: BaseModel,
+    TSampleAnnotation: BaseModel,
+    TSampleResult: BaseModel,
+    TSampleEvaluation: BaseModel,
 ](BaseModel, frozen=True):
     input: TSampleInput
     annotation: TSampleAnnotation
@@ -53,14 +29,14 @@ DataSetupId = NewType("DataSetupId", str)
 ConfigSetupId = NewType("ConfigSetupId", str)
 
 
-class DataSetup[TExperimentData: ExperimentData](Protocol):
+class DataSetup[TExperimentData: BaseModel](Protocol):
     @abstractmethod
     @asynccontextmanager
     async def __call__(self, data: TExperimentData) -> AsyncIterator[DataSetupId]:
         yield DataSetupId("")
 
 
-class ConfigSetup[TExperimentConfig: ExperimentConfig](Protocol):
+class ConfigSetup[TExperimentConfig: BaseModel](Protocol):
     @abstractmethod
     @asynccontextmanager
     async def __call__(
@@ -71,8 +47,8 @@ class ConfigSetup[TExperimentConfig: ExperimentConfig](Protocol):
 
 
 class SampleRunner[
-    TSampleInput: SampleInput,
-    TSampleResult: SampleResult,
+    TSampleInput: BaseModel,
+    TSampleResult: BaseModel,
 ](Protocol):
     @abstractmethod
     async def __call__(
@@ -85,10 +61,10 @@ class SampleRunner[
 
 
 class ResultEvaluator[
-    TSampleInput: SampleInput,
-    TSampleAnnotation: SampleAnnotation,
-    TSampleResult: SampleResult,
-    TSampleEvaluation: SampleEvaluation,
+    TSampleInput: BaseModel,
+    TSampleAnnotation: BaseModel,
+    TSampleResult: BaseModel,
+    TSampleEvaluation: BaseModel,
 ](Protocol):
     @abstractmethod
     async def __call__(
@@ -101,10 +77,10 @@ class ResultEvaluator[
 
 
 class ResultAggregator[
-    TSampleInput: SampleInput,
-    TSampleAnnotation: SampleAnnotation,
-    TSampleResult: SampleResult,
-    TSampleEvaluation: SampleEvaluation,
+    TSampleInput: BaseModel,
+    TSampleAnnotation: BaseModel,
+    TSampleResult: BaseModel,
+    TSampleEvaluation: BaseModel,
 ](Protocol):
     @abstractmethod
     async def __call__(
@@ -118,12 +94,12 @@ class ResultAggregator[
 
 @dataclass(frozen=True)
 class EvaluationPipeline[
-    TSampleInput: SampleInput,
-    TSampleAnnotation: SampleAnnotation,
-    TSampleResult: SampleResult,
-    TSampleEvaluation: SampleEvaluation,
-    TExperimentConfig: ExperimentConfig,
-    TExperimentData: ExperimentData,
+    TSampleInput: BaseModel,
+    TSampleAnnotation: BaseModel,
+    TSampleResult: BaseModel,
+    TSampleEvaluation: BaseModel,
+    TExperimentConfig: BaseModel,
+    TExperimentData: BaseModel,
 ](BaseModel):
     data_setup: DataSetup[TExperimentData]
     config_setup: ConfigSetup[TExperimentConfig]

@@ -1,24 +1,25 @@
+from pydantic import BaseModel
 from evalessence.interfaces import AggregatedResult, ExperimentConfig, ExperimentData, FloatResult, Sample, SampleInput, SampleAnnotation, SampleResult, SampleEvaluation, DataSetupId, ConfigSetupId, EvaluationPipeline
 from typing import AsyncIterator, List, Tuple
 from contextlib import asynccontextmanager
 
 
-class MySampleInput(SampleInput, frozen=True):
+class MySampleInput(BaseModel, frozen=True):
     user_message: str
 
-class MySampleAnnotation(SampleAnnotation, frozen=True):
+class MySampleAnnotation(BaseModel, frozen=True):
     expected_answer: str
 
-class MySampleResult(SampleResult, frozen=True):
+class MySampleResult(BaseModel, frozen=True):
     assistant_reply: str
 
-class MySampleEvaluation(SampleEvaluation, frozen=True):
+class MySampleEvaluation(BaseModel, frozen=True):
     is_equivalent: bool
 
-class MyExperimentConfig(ExperimentConfig, frozen=True):
+class MyExperimentConfig(BaseModel, frozen=True):
     model_name: str
 
-class MyExperimentData(ExperimentData, frozen=True):
+class MyExperimentData(BaseModel, frozen=True):
     faq_entries: List[Tuple[str, str]]  # List of (question, answer) pairs
 
 @asynccontextmanager
