@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from evalessence.interfaces import AggregatedResult, ExperimentConfig, ExperimentData, FloatResult, Sample, SampleInput, SampleAnnotation, SampleResult, SampleEvaluation, DataSetupId, ConfigSetupId, EvaluationPipeline
+from evalessence.interfaces import AggregatedResult, Sample, DataSetupId, ConfigSetupId, EvaluationPipeline
 from typing import AsyncIterator, List, Tuple
 from contextlib import asynccontextmanager
 
@@ -57,10 +57,10 @@ async def evaluate_result(
 
 async def aggregate_results(
     results: List[Sample[MySampleInput, MySampleAnnotation, MySampleResult, MySampleEvaluation]],
-) -> AggregatedResult:
+) -> dict[str, AggregatedResult]:
     total = len(results)
     correct = sum(1 for eval in results if eval.comparison.is_equivalent)
-    return FloatResult(label="accuracy", value=correct / total if total > 0 else 0.0)
+    return {"accuracy": correct / total if total > 0 else 0.0}
 
 
 my_eventuation_pipeline = EvaluationPipeline[
@@ -75,6 +75,6 @@ my_eventuation_pipeline = EvaluationPipeline[
     config_setup=setup_config,
     sample_runner=run_sample,
     result_evaluator=evaluate_result,
-    result_aggregators=[aggregate_results],
+    result_aggregator=aggregate_results,
 )
 

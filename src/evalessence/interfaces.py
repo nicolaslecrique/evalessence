@@ -3,15 +3,9 @@ from dataclasses import dataclass
 from typing import AsyncIterator, NewType, Protocol
 from pydantic import BaseModel
 from abc import abstractmethod
+from pandas import DataFrame
 
-
-class AggregatedResult(BaseModel, frozen=True):
-    label: str
-
-
-class FloatResult(AggregatedResult, frozen=True):
-    value: float
-
+AggregatedResult = float | DataFrame
 
 class Sample[
     TSampleInput: BaseModel,
@@ -88,7 +82,7 @@ class ResultAggregator[
         results: list[
             Sample[TSampleInput, TSampleAnnotation, TSampleResult, TSampleEvaluation]
         ],
-    ) -> AggregatedResult:
+    ) -> dict[str, AggregatedResult]:
         pass
 
 
@@ -107,8 +101,5 @@ class EvaluationPipeline[
     result_evaluator: ResultEvaluator[
         TSampleInput, TSampleAnnotation, TSampleResult, TSampleEvaluation
     ]
-    result_aggregators: list[
-        ResultAggregator[
-            TSampleInput, TSampleAnnotation, TSampleResult, TSampleEvaluation
-        ]
+    result_aggregator:ResultAggregator[TSampleInput, TSampleAnnotation, TSampleResult, TSampleEvaluation
     ]
