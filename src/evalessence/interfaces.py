@@ -1,71 +1,138 @@
-from typing import NewType
+from contextlib import asynccontextmanager
+from dataclasses import dataclass
+from typing import AsyncIterator, NewType, Protocol
 from pydantic import BaseModel
-from abc import abstractmethod, ABC 
+from abc import abstractmethod, ABC
 
 
-class SampleInput(ABC, BaseModel, frozen=True):
+class SampleInput(BaseModel, frozen=True):
     pass
 
-class SampleAnnotation(ABC, BaseModel, frozen=True):
+
+class SampleAnnotation(BaseModel, frozen=True):
     pass
 
-class SampleResult(ABC, BaseModel, frozen=True):
+
+class SampleResult(BaseModel, frozen=True):
     pass
 
-class SampleComparison(ABC, BaseModel, frozen=True):
+
+class SampleEvaluation(BaseModel, frozen=True):
     pass
+
 
 class ExperimentConfig(BaseModel, frozen=True):
     pass
 
+
 class ExperimentData(BaseModel, frozen=True):
     pass
 
+
 class AggregatedResult(BaseModel, frozen=True):
-    pass
+    label: str
 
-ExperimentId = NewType('ExperimentId', str)
 
-class EvaluationPipeline[
+class FloatResult(AggregatedResult, frozen=True):
+    value: float
+
+
+class Sample[
     TSampleInput: SampleInput,
     TSampleAnnotation: SampleAnnotation,
     TSampleResult: SampleResult,
-    TSampleComparison: SampleComparison,
-    TExperimentConfig: ExperimentConfig,
-    TExperimentData: ExperimentData,
-    ](ABC):
+    TSampleEvaluation: SampleEvaluation,
+](BaseModel, frozen=True):
+    input: TSampleInput
+    annotation: TSampleAnnotation
+    result: TSampleResult
+    comparison: TSampleEvaluation
 
+
+DataSetupId = NewType("DataSetupId", str)
+ConfigSetupId = NewType("ConfigSetupId", str)
+
+
+class DataSetup[TExperimentData: ExperimentData](Protocol):
     @abstractmethod
-    def init_experiment(
+    @asynccontextmanager
+    async def __call__(self, data: TExperimentData) -> AsyncIterator[DataSetupId]:
+        yield DataSetupId("")
+
+
+class ConfigSetup[TExperimentConfig: ExperimentConfig](Protocol):
+    @abstractmethod
+    @asynccontextmanager
+    async def __call__(
         self,
         config: TExperimentConfig,
-        data: TExperimentData
-        ) -> ExperimentId:
-        pass
+    ) -> AsyncIterator[ConfigSetupId]:
+        yield ConfigSetupId("")
 
+
+class SampleRunner[
+    TSampleInput: SampleInput,
+    TSampleResult: SampleResult,
+](Protocol):
     @abstractmethod
-    def run_sample(
+    async def __call__(
         self,
-        experiment_id: ExperimentId,
+        data_setup_id: DataSetupId,
+        config_setup_id: ConfigSetupId,
         input: TSampleInput,
     ) -> TSampleResult:
         pass
 
+
+class ResultEvaluator[
+    TSampleInput: SampleInput,
+    TSampleAnnotation: SampleAnnotation,
+    TSampleResult: SampleResult,
+    TSampleEvaluation: SampleEvaluation,
+](Protocol):
     @abstractmethod
-    def evaluate_result(
+    async def __call__(
         self,
         input: TSampleInput,
         annotation: TSampleAnnotation,
-        results: TSampleResult) -> TSampleComparison:
+        result: TSampleResult,
+    ) -> TSampleEvaluation:
         pass
 
+
+class ResultAggregator[
+    TSampleInput: SampleInput,
+    TSampleAnnotation: SampleAnnotation,
+    TSampleResult: SampleResult,
+    TSampleEvaluation: SampleEvaluation,
+](Protocol):
     @abstractmethod
-    def aggregate_results(
+    async def __call__(
         self,
-        comparisons: list[TSampleComparison],
+        results: list[
+            Sample[TSampleInput, TSampleAnnotation, TSampleResult, TSampleEvaluation]
+        ],
     ) -> AggregatedResult:
         pass
 
 
-
-
+@dataclass(frozen=True)
+class EvaluationPipeline[
+    TSampleInput: SampleInput,
+    TSampleAnnotation: SampleAnnotation,
+    TSampleResult: SampleResult,
+    TSampleEvaluation: SampleEvaluation,
+    TExperimentConfig: ExperimentConfig,
+    TExperimentData: ExperimentData,
+](BaseModel):
+    data_setup: DataSetup[TExperimentData]
+    config_setup: ConfigSetup[TExperimentConfig]
+    sample_runner: SampleRunner[TSampleInput, TSampleResult]
+    result_evaluator: ResultEvaluator[
+        TSampleInput, TSampleAnnotation, TSampleResult, TSampleEvaluation
+    ]
+    result_aggregators: list[
+        ResultAggregator[
+            TSampleInput, TSampleAnnotation, TSampleResult, TSampleEvaluation
+        ]
+    ]

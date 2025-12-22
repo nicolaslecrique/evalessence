@@ -1,6 +1,6 @@
-from evalessence.interfaces import ExperimentConfig, ExperimentData, ExperimentId, SampleInput, SampleAnnotation, SampleResult, SampleComparison, ExperienceConfig, ExperienceData, EvaluationPipeline
-from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Tuple
+from evalessence.interfaces import AggregatedResult, ExperimentConfig, ExperimentData, FloatResult, Sample, SampleInput, SampleAnnotation, SampleResult, SampleEvaluation, DataSetupId, ConfigSetupId, EvaluationPipeline
+from typing import AsyncIterator, List, Tuple
+from contextlib import asynccontextmanager
 
 
 class MySampleInput(SampleInput, frozen=True):
@@ -12,7 +12,7 @@ class MySampleAnnotation(SampleAnnotation, frozen=True):
 class MySampleResult(SampleResult, frozen=True):
     assistant_reply: str
 
-class MySampleComparison(SampleComparison, frozen=True):
+class MySampleEvaluation(SampleEvaluation, frozen=True):
     is_equivalent: bool
 
 class MyExperimentConfig(ExperimentConfig, frozen=True):
@@ -21,41 +21,59 @@ class MyExperimentConfig(ExperimentConfig, frozen=True):
 class MyExperimentData(ExperimentData, frozen=True):
     faq_entries: List[Tuple[str, str]]  # List of (question, answer) pairs
 
+@asynccontextmanager
+async def setup_data(
+    data: MyExperimentData
+) -> AsyncIterator[DataSetupId]:
+    # Simulate data setup
+    yield DataSetupId("my_data_setup")
 
-class MyEvaluationPipeline(
-    EvaluationPipeline[
-        MySampleInput,
-        MySampleAnnotation,
-        MySampleResult,
-        MySampleComparison,
-        MyExperimentConfig,
-        MyExperimentData,
-    ]
-):
 
-    def init_experiment(
-        self,
-        config: MyExperimentConfig,
-        data: MyExperimentData
-    ) -> ExperimentId:
-        # Initialize experiment with model and data
-        return ExperimentId("exp_001")
+@asynccontextmanager
+async def setup_config(
+    config: MyExperimentConfig,
+) -> AsyncIterator[ConfigSetupId]:
+    # Simulate config setup
+        yield ConfigSetupId("my_config_setup")
 
-    def run_sample(
-        self,
-        experiment_id: ExperimentId,
-        input: MySampleInput,
-    ) -> MySampleResult:
-        # Simulate running the model to get a response
-        reply = f"Simulated reply to: {input.user_message}"
-        return MySampleResult(assistant_reply=reply)
 
-    def evaluate_result(
-        self,
-        input: MySampleInput,
-        annotation: MySampleAnnotation,
-        results: MySampleResult
-    ) -> MySampleComparison:
-        # Compare the model's reply to the expected answer
-        is_equivalent = results.assistant_reply == annotation.expected_answer
-        return MySampleComparison(is_equivalent=is_equivalent)
+async def run_sample(
+    data_setup_id: DataSetupId,
+    config_setup_id: ConfigSetupId,
+    input: MySampleInput) -> MySampleResult:
+        # Simulate running the sample
+        return MySampleResult(assistant_reply=f"Response to: {input.user_message}")
+    
+
+async def evaluate_result(
+    input: MySampleInput,
+    annotation: MySampleAnnotation,
+    result: MySampleResult,
+) -> MySampleEvaluation:
+    is_equivalent = annotation.expected_answer in result.assistant_reply
+    return MySampleEvaluation(is_equivalent=is_equivalent) 
+
+
+async def aggregate_results(
+    results: List[Sample[MySampleInput, MySampleAnnotation, MySampleResult, MySampleEvaluation]],
+) -> AggregatedResult:
+    total = len(results)
+    correct = sum(1 for eval in results if eval.comparison.is_equivalent)
+    return FloatResult(label="accuracy", value=correct / total if total > 0 else 0.0)
+
+
+my_eventuation_pipeline = EvaluationPipeline[
+    MySampleInput,
+    MySampleAnnotation,
+    MySampleResult,
+    MySampleEvaluation,
+    MyExperimentConfig,
+    MyExperimentData,
+](
+    data_setup=setup_data,
+    config_setup=setup_config,
+    sample_runner=run_sample,
+    result_evaluator=evaluate_result,
+    result_aggregators=[aggregate_results],
+)
+
