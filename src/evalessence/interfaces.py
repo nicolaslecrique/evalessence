@@ -86,7 +86,7 @@ class ResultAggregator[
         pass
 
 
-@dataclass(frozen=True)
+@dataclass
 class EvaluationPipeline[
     TSampleInput: BaseModel,
     TSampleAnnotation: BaseModel,
@@ -94,7 +94,7 @@ class EvaluationPipeline[
     TSampleEvaluation: BaseModel,
     TExperimentConfig: BaseModel,
     TExperimentData: BaseModel,
-](BaseModel):
+]:
     data_setup: DataSetup[TExperimentData]
     config_setup: ConfigSetup[TExperimentConfig]
     sample_runner: SampleRunner[TSampleInput, TSampleResult]

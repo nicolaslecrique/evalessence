@@ -2,6 +2,7 @@ from pydantic import BaseModel
 from evalessence.interfaces import AggregatedResult, Sample, DataSetupId, ConfigSetupId, EvaluationPipeline
 from typing import AsyncIterator, List, Tuple
 from contextlib import asynccontextmanager
+from evalessence.rest_api import create_rest_api
 
 
 class MySampleInput(BaseModel, frozen=True):
@@ -17,7 +18,7 @@ class MySampleEvaluation(BaseModel, frozen=True):
     is_equivalent: bool
 
 class MyExperimentConfig(BaseModel, frozen=True):
-    model_name: str
+    llm_model: str
 
 class MyExperimentData(BaseModel, frozen=True):
     faq_entries: List[Tuple[str, str]]  # List of (question, answer) pairs
@@ -78,3 +79,4 @@ my_eventuation_pipeline = EvaluationPipeline[
     result_aggregator=aggregate_results,
 )
 
+app = create_rest_api(my_eventuation_pipeline)
