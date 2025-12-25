@@ -1,5 +1,6 @@
 from pydantic import BaseModel
-from evalessence.interfaces import AggregatedResult, Sample, DataSetupId, ConfigSetupId, EvaluationPipeline
+from evalessence.evaluation_pipeline import EvaluationPipeline
+from evalessence.interfaces import AggregatedResult, ConfigSetupId
 from typing import AsyncIterator, List, Tuple
 from contextlib import asynccontextmanager
 from evalessence.rest_api import create_rest_api
@@ -23,13 +24,6 @@ class MyExperimentConfig(BaseModel, frozen=True):
 class MyExperimentData(BaseModel, frozen=True):
     faq_entries: List[Tuple[str, str]]  # List of (question, answer) pairs
 
-@asynccontextmanager
-async def setup_data(
-    data: MyExperimentData
-) -> AsyncIterator[DataSetupId]:
-    # Simulate data setup
-    yield DataSetupId("my_data_setup")
-
 
 @asynccontextmanager
 async def setup_config(
@@ -40,7 +34,6 @@ async def setup_config(
 
 
 async def run_sample(
-    data_setup_id: DataSetupId,
     config_setup_id: ConfigSetupId,
     input: MySampleInput) -> MySampleResult:
         # Simulate running the sample
@@ -57,22 +50,14 @@ async def evaluate_result(
 
 
 async def aggregate_results(
-    results: List[Sample[MySampleInput, MySampleAnnotation, MySampleResult, MySampleEvaluation]],
+    results: List[tuple[MySampleInput, MySampleAnnotation, MySampleResult, MySampleEvaluation]],
 ) -> dict[str, AggregatedResult]:
     total = len(results)
-    correct = sum(1 for eval in results if eval.comparison.is_equivalent)
+    correct = sum(1 for _, _, _, eval in results if eval.is_equivalent)
     return {"accuracy": correct / total if total > 0 else 0.0}
 
 
-my_eventuation_pipeline = EvaluationPipeline[
-    MySampleInput,
-    MySampleAnnotation,
-    MySampleResult,
-    MySampleEvaluation,
-    MyExperimentConfig,
-    MyExperimentData,
-](
-    data_setup=setup_data,
+my_eventuation_pipeline = EvaluationPipeline(
     config_setup=setup_config,
     sample_runner=run_sample,
     result_evaluator=evaluate_result,
