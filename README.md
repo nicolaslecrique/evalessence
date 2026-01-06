@@ -2,19 +2,19 @@
 
 ## Vision
 
-* "Agnostic" regarding workflow, use-case, framework, programming language  
-* All features are accessible by code / Rest API / UI
-* The package provides the UI structure and default "json" view of client data structures
-* The user is able to vibe-code it's own rendering component (as react components or html ?) to annotate and vizualize its own data structure
-* The user can define it's own metrics (both for aggregation and individual sample) using "https://rhai.rs"
-* It is installable as a standard package install (pip install in python) and startable as a single command line
-* It can run on the developper computer, or as a server
-* EvalEssence provides infrastructure (storage, versionning, search & filter) and defaults (dashboards, views, metrics, judges)
+* (V0) "Agnostic" regarding workflow, use-case, framework, programming language  
+* (V0) All features are accessible by code / Rest API / UI
+* (V0) The package provides the UI structure and default "json" view of client data structures
+* (Later) The user is able to vibe-code it's own rendering component (as react components or html ?) to annotate and vizualize its own data structure
+* (V0) The user can define it's own metrics (both for aggregation and individual sample) using "https://rhai.rs"
+* (V0) It is installable as a simple binary and runnable as a simple command line
+* (V0) It can run on the developper computer, or as a server
+* (Later) The concept is that EvalEssence provides infrastructure (UI template, storage, versionning, search & filter, auth...) and defaults (dashboards, views, metrics, judges)
 
 
 # MVP Specifications
 
-* User pip install evalessence
+* User install evalessence
 * User start its own Rest API exposing a OpenAPI documentation
 * Using the web interface, the user:
     * Create an Evaluation pipeline by specifying a Post url, and an annotation format (as a json format), metrics as rhai functions of (input, output, annotation)
