@@ -1,45 +1,44 @@
 # EvalEssence
 
+## Vision
+
+* "Agnostic" regarding workflow, use-case, framework, programming language  
+* All features are accessible by code / Rest API / UI
+* The package provides the UI structure and default "json" view of client data structures
+* The user is able to vibe-code it's own rendering component (as react components or html ?) to annotate and vizualize its own data structure
+* The user can define it's own metrics (both for aggregation and individual sample) using "https://rhai.rs"
+* It is installable as a standard package install (pip install in python) and startable as a single command line
+* It can run on the developper computer, or as a server
+* EvalEssence provides infrastructure (storage, versionning, search & filter) and defaults (dashboards, views, metrics, judges)
+
+
 # MVP Specifications
 
-## V0
 
-
-### Setup
-
-Within its own service evaluated (or as a dedicated service), the user:
-- Define the SampleInput structure in Pydantic
-- Define the SampleAnnotation structure in Pydantic
-- Define the SampleResult structure in Pydantic
-- Define the SampleComparison structure un Pydantic
-- Define the ExperienceConfig structure in Pydantic (with a default value)
-- Define the ExperienceData structure in Pydantic
-- Define the def runExperience(ExperienceConfig, ExperienceData, list[SampleInput]) -> list[SampleResult]
-- Define the def evaluate(SampleInput, SampleAnnotation, SampleResult) -> SampleComparison
-- Define the def computeMetrics(list[SampleComparison]) -> list[AggregatedResult]
-with AggregatedResult = DataFrame, dict..
-
-- Define EvalEssence config as json (or yaml?) (path to store all the experience data)
-
-- Add a line in a startup script that will popup a running Service exposting a Rest API and an UI
-
-### Features REST API
-
-- add / remove / update a SampleInput / SampleAnnotation
-- run the experience
-- compute the result
-- store everything
-
-### Features UI
-
-* Display the experiment
-    * grid with columns as raw jsons:
-        * the SampleInput
-        * the SampleAnnotation
-        * the SampleResult
-        * the SampleComparison
-    * List of widget, each one a AggregatedResult (just a dataFrame for now)
+* User pip install evalessence
+* User implement
+    - interface "run_sample(input) -> output"
+    - a main.py with evalessence_pipeline = Evalessence(run_sample, "my_pipeline")
+* User start evalessence and the fastAPI server.
+* Using the web interface, the user can:
+    * select evalessence pipeline
+    * see the list of samples in a grid, add /update / delete
+    * run the pipeline -> get an "experiment
+    * select the experiment -> get the list of samples with answers
+    * add / update / delete judges (prompt), return type OK / KO
+    * run evaluation on experiment -> get judge values for all samples
+-
 
 
 
-## Later
+
+
+
+
+
+# Future work
+
+* How to manage judge alignments ?
+* How to manage input structure updates ?
+* How to manage custom metrics ?
+* How to manage annotations ?
