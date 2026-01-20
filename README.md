@@ -2,15 +2,15 @@
 
 ## Vision
 
-* (V0) "Agnostic" regarding workflow, use-case, framework, programming language  
-* (V0) All features are accessible by code / Rest API / UI
-* (V0) The package provides the UI structure and default "json" view of client data structures
-* (Later) The user is able to vibe-code it's own rendering component (as react components or html ?) to annotate and vizualize its own data structure
-* (V0) The user can define it's own metrics (both for aggregation and individual sample) using "https://rhai.rs"
-* (V0) It is installable as a simple binary and runnable as a simple command line
-* (V0) It can run on the developper computer, or as a server
-* Versioning is done through data transformation (minijinja or rhai ?)
-* (Later) The concept is that EvalEssence provides infrastructure (UI template, storage, versionning, search & filter, auth...) and defaults (dashboards, views, metrics, judges)
+* "Agnostic" regarding workflow, use-case, framework, programming language  
+* All features are accessible by code / Rest API / UI
+* The package provides the UI structure and default "json" view of client data structures
+* The user is able to vibe-code it's own rendering component (as react components or html ?) to annotate and vizualize its own data structure
+* The user can define it's own metrics (both for aggregation and individual sample) using a scripting language (lua?)
+* It is installable as a simple binary and runnable as a simple command line
+* It can run on the developper computer, or as a server
+* Versioning is done through data transformation (minijinja?)
+* EvalEssence provides infrastructure (UI template, storage, versionning, search & filter, auth...) and defaults (dashboards, views, metrics, judges)
 
 
 ## MVP Specifications
@@ -28,42 +28,37 @@
 
 ## Components
 
+* Id, Name, Version on all objects.
+
 * App (business concept == one codebase)
     * Name
 * Env:
     * Name
     * Url
-* Format
-    * Name
-    * JSON Schema
 * Adapter
     * Name
-    * Input Format
-    * Output Format
     * MiniJinja Script
 * Dataset:
     * Name
-    * Input Format
-    * Label Format
-    * List of pairs input / output
+    * List of json pairs input / label
 * Dataset Filter:
     * Name
     * datafusion sql "where" clause
 * Metric
     * Name
-    * Format
-    * Output type
     * Script in Lua
 * Experiment
     * Env
     * Dataset
     * Dataset filter
     * Route
-    * Adapter
+    * Dataset Input -> Route Adapter
 * Evaluation
-    * Experiment
+    * Experiment Result
     * List of Metrics
-
+* Aggregation
+    * Evaluation results
+    * Script in Lua
 
 
 ## Detailed UI specifications
