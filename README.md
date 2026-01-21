@@ -31,35 +31,22 @@
 * Id, Name, Version on all objects.
 
 * App (business concept == one codebase)
-    * Name
-* Env:
-    * Name
-    * Url
-* Adapter
-    * Name
-    * MiniJinja Script
-* Dataset:
-    * Name
-    * List of json pairs input / label
-* Dataset Filter:
-    * Name
-    * datafusion sql "where" clause
-* Metric
-    * Name
-    * Script in Lua
-* Experiment
-    * Env
-    * Dataset
-    * Dataset filter
-    * Route
-    * Dataset Input -> Route Adapter
-* Evaluation
-    * Experiment Result
-    * List of Metrics
-* Aggregation
-    * Evaluation results
-    * Script in Lua
-
+    * Envs: list
+        * Url
+    * Pipelines: list
+        * Dataset: List of json pairs input / label
+        * Route
+        * Dataset Input -> Route Input Adapter as MiniJinja Script
+        * List of metrics: Script in Lua
+        * List of filters (duckdb "where" clause)
+        * List of aggregations: Script in Lua
+    * Experiment: list
+        * Pipeline Template
+        * Env (in list)
+        * Dataset filters (sublist)
+        * Metrics (sublist)
+        * Aggregation (sublist)
+        * results
 
 ## Detailed UI specifications
 
@@ -68,13 +55,11 @@
 * a list or square with the name of apps
 * a "plus" square with a textbox with the name of the app
 
-### Side bar
+### Side bar, after App is selected
 
-* Environments
-* Dataset
-
-
-
+* envs
+* Pipelines
+* Experiments
 
 ### Experiment
 
