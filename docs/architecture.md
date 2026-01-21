@@ -7,7 +7,10 @@
 
 ## Implementation
 
-* Storage: Lancedb as storage
+* Storage:
+    * yaml files for Pipeline configs
+    * jsonl files for datasets (or lancedb ?) ?
+    * Lancedb (experiments, config snapshots)
 * API definition: A rust API definition (that can be wrapper in any programming language)
 * Local API: A rust API implementation manipulating lancedb
 * Rest API, calling the Local API
