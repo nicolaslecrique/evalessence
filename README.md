@@ -18,7 +18,7 @@
 * User install evalessence
 * User start its own Rest API exposing a OpenAPI documentation
 * Using the web interface, the user:
-    * Create an Evaluation pipeline by specifying a Post url, and an annotation format (as a json format), metrics as rhai functions of (input, output, annotation)
+    * Create an Evaluation pipeline
     * select the evalessence pipeline
     * see the list of samples in a grid, add /update / delete, and associate an annotation
     * run the pipeline to generate outputs ("experiment")
@@ -34,7 +34,7 @@
     * Envs: list
         * Url
     * Pipelines: list
-        * Dataset: List of json pairs input / label
+        * Dataset: List of json pairs input / label, (imported from a jsonl file)
         * Route
         * Dataset Input -> Route Input Adapter as MiniJinja Script
         * List of metrics: Script in Lua
@@ -81,7 +81,7 @@
 
 # Future work
 
-* LLM Judge function available to rhai
+* LLM Judge function available to lua
 * judge alignments
 * versionning and migrations of inputs / annotations
 * Aggregation
