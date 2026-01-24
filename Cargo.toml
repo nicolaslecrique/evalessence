@@ -1,0 +1,45 @@
+[workspace]
+resolver = "3"
+members = ["crates/evalessence-api", "crates/evalessence-core"]
+
+
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+
+# Force documentation and forbid unsafe
+[workspace.lints.rust]
+# Triggered if you try to use 'unsafe'
+unsafe_code = "forbid"
+# Catches hidden lifetime issues
+elided_lifetimes_in_paths = "warn"
+# Prevents unnecessary path prefixes (keeps code clean)
+unused_qualifications = "warn"
+
+[workspace.lints.clippy]
+# The "Nuclear Option": Enable all nursery and pedantic lints
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+
+# Tier 2: Specific Overrides / Selected Nursery Lints (Priority -1 or Default 0)
+# These will now correctly override the groups above.
+missing_const_for_fn = "warn"
+redundant_pub_crate = "warn"
+branches_sharing_code = "warn"
+
+
+
+
+# --- Strict Safety & Error Handling ---
+# Prevent common "get it working fast" habits that cause crashes
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "warn"
+
+# --- Common Overrides ---
+# Some pedantic lints are purely stylistic; 
+# these two are often disabled even in strict projects to reduce noise.
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
