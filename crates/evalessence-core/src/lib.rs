@@ -4,45 +4,38 @@ use serde_json::Value;
 use reqwest::Client;
 use evalessence_api::{Api, SampleError};
 
+#[derive(Default)]
 pub struct LocalApi {
     client: Client,
-}
-
-impl Default for LocalApi {
-    fn default() -> Self {
-        Self {
-            client: Client::new(),
-        }
-    }
 }
 
 #[async_trait]
 impl Api for LocalApi {
     async fn run_samples(&self, url: &str, inputs: Vec<Value>) -> Vec<Result<Value, SampleError>> {
-        // Limit concurrent requests to 10 so we don't overwhelm the OS or Server
-        let concurrent_requests = 10;
+        const CONCURRENT_REQUESTS: usize = 10;
 
         stream::iter(inputs)
-            .map(|input| {
-                let client = self.client.clone();
-                async move {
-                    let res = client.post(url)
-                        .json(&input)
-                        .send()
-                        .await
-                        .map_err(|e| format!("Network error: {e}"))?;
-
-                    if res.status().is_success() {
-                        res.json::<Value>()
-                           .await
-                           .map_err(|e| format!("Parse error: {e}"))
-                    } else {
-                        Err(format!("Status error: {}", res.status()))
-                    }
-                }
-            })
-            .buffered(concurrent_requests) // Runs up to 10 at a time, maintains order
-            .collect::<Vec<_>>()
+            // We pass the reference to self and the url into the stream
+            .map(|input| self.run_single_sample(url, input))
+            .buffered(CONCURRENT_REQUESTS)
+            .collect()
             .await
+    }
+}
+
+impl LocalApi {
+    /// Helper to process a single request
+    async fn run_single_sample(&self, url: &str, input: Value) -> Result<Value, SampleError> {
+        let res = self.client.post(url)
+            .json(&input)
+            .send()
+            .await
+            .map_err(|e| format!("Network error: {e}"))?
+            .error_for_status()
+            .map_err(|e| format!("Status error: {e}"))?;
+
+        res.json::<Value>()
+            .await
+            .map_err(|e| format!("Parse error: {e}"))
     }
 }
