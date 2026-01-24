@@ -1,18 +1,15 @@
 use async_trait::async_trait;
+use futures::stream::{self, StreamExt};
 use serde_json::Value;
-use futures::future::join_all;
 use reqwest::Client;
+use evalessence_api::{Api, SampleError};
 
-// TODO this is generated code to clean
-
-pub type SampleError = String;
-
-pub struct HttpApi {
+pub struct LocalApi {
     client: Client,
 }
 
-impl HttpApi {
-    pub fn new() -> Self {
+impl Default for LocalApi {
+    fn default() -> Self {
         Self {
             client: Client::new(),
         }
@@ -20,35 +17,32 @@ impl HttpApi {
 }
 
 #[async_trait]
-impl Api for HttpApi {
+impl Api for LocalApi {
     async fn run_samples(&self, url: &str, inputs: Vec<Value>) -> Vec<Result<Value, SampleError>> {
-        // Create a list of futures (one for each input)
-        let tasks = inputs.into_iter().map(|input| {
-            let client = self.client.clone();
-            let url = url.to_string();
+        // Limit concurrent requests to 10 so we don't overwhelm the OS or Server
+        let concurrent_requests = 10;
 
-            // We move everything into an async block for this specific sample
-            async move {
-                let response = client
-                    .post(&url)
-                    .json(&input)
-                    .send()
-                    .await
-                    .map_err(|e| format!("Network error: {}", e))?;
-
-                let status = response.status();
-                if status.is_success() {
-                    response
-                        .json::<Value>()
+        stream::iter(inputs)
+            .map(|input| {
+                let client = self.client.clone();
+                async move {
+                    let res = client.post(url)
+                        .json(&input)
+                        .send()
                         .await
-                        .map_err(|e| format!("JSON parse error: {}", e))
-                } else {
-                    Err(format!("Server returned error status: {}", status))
-                }
-            }
-        });
+                        .map_err(|e| format!("Network error: {e}"))?;
 
-        // run all tasks in parallel and wait for all to finish
-        join_all(tasks).await
+                    if res.status().is_success() {
+                        res.json::<Value>()
+                           .await
+                           .map_err(|e| format!("Parse error: {e}"))
+                    } else {
+                        Err(format!("Status error: {}", res.status()))
+                    }
+                }
+            })
+            .buffered(concurrent_requests) // Runs up to 10 at a time, maintains order
+            .collect::<Vec<_>>()
+            .await
     }
 }
