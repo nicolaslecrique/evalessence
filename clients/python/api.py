@@ -26,7 +26,7 @@ class Env:
 class Pipeline:
     id: PipelineId
     route: str
-    dataset: Dataset
+    dataset_id: DatasetId
 
 
 @dataclass
@@ -45,29 +45,43 @@ class App:
 
 @dataclass
 class Experiment:
-    app_id: str
-    app_version: str
-    pipeline_id: str
+    app_id: AppId
+    app_version: UUID
+    pipeline_id: PipelineId
+
+
+
+
+
+@dataclass
+class ExperimentResult:
+    result: StreamingResponse | PaginatedResponse # Depending on weither the expermient is ongoing or finished
 
 
 class Evalessence(ABC):
 
-    def get_app_list(self) -> list[AppHeader]:
+    async def get_app_list(self) -> list[AppHeader]:
         raise NotImplementedError()
 
-    def create_app(self, name: str) -> AppId:
+    async def create_app(self, name: str) -> AppId:
         raise NotImplementedError()
 
-    def get_app(self, app_id: AppId) -> App:
+    async def get_app(self, app_id: AppId) -> App:
         raise NotImplementedError()
     
-    def delete_app(self, app_id: AppId, app_version: UUID) -> None:
+    async def delete_app(self, app_id: AppId, app_version: UUID) -> None:
         raise NotImplementedError()
 
-    def update_app(self, app: App) -> App:
+    async def update_app(self, app: App, app_version: UUID) -> App:
         raise NotImplementedError()
 
-    def run_experiment(self, experiment: Experiment) -> ExperimentId:
+    async def upload_dataset()# TODO manage dataset CRUD
+    # Todo: do i need dataset versioning ?
+    # should i do pipelin versionning ?
+
+
+    async def run_experiment(self, experiment: Experiment) -> ExperimentId:
         raise NotImplementedError()
 
-    def get_experiment(sed, experiment_id:ExperimentId) -> TODO
+    def get_experiment(self, experiment_id: ExperimentId) -> ExperimentResult:
+        raise NotImplementedError()
