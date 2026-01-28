@@ -56,7 +56,7 @@ class ExperimentConfig:
 class Experiment:
     id: str
     config: ExperimentConfig
-    status: Literal["not_started","running","completed","stopped"]
+    status: Literal["not_started","running","completed","stopped", "failed"]
 
 JSONValue: TypeAlias = (
     dict[str, "JSONValue"] 
@@ -71,6 +71,12 @@ JSONValue: TypeAlias = (
 class ExperimentSampleResult:
     sample_id: str
     result: JSONValue
+
+@dataclass
+class ExperimentPaginatedResults:
+    total_count: int
+    items: list[ExperimentSampleResult]
+    next_cursor: str | None
 
 class Evalessence(ABC):
 
@@ -92,7 +98,7 @@ class Evalessence(ABC):
 
     # --- Datasets and experiments ---
 
-
+    # TODO: at the level of the Code API, it should probably be a list ?
     async def upload_file_to_dataset(self, app_id: str, dataset_id: str, file: StringIO) -> None:
         "file must be a jsonl file, where each entry has a unique 'sample_id' key"
         raise NotImplementedError()
@@ -106,8 +112,13 @@ class Evalessence(ABC):
     async def get_experiment(self, app_id: str, experiment_id: str) -> Experiment:
         raise NotImplementedError()
 
-    async def stream_experiment_results(self, experiment_id: str) -> AsyncGenerator[ExperimentSampleResult, None]:
+    async def stream_experiment_results(self, app_id: str, experiment_id: str) -> AsyncGenerator[ExperimentSampleResult, None]:
         raise NotImplementedError()
     
-    async def load_experiment_results(self, experiment_id: str) -> Sequence[ExperimentSampleResult]:
+    async def load_experiment_results(
+        self, 
+        experiment_id: str, 
+        limit: int = 100, 
+        cursor: str | None = None
+    ) -> ExperimentPaginatedResults:
         raise NotImplementedError()
