@@ -60,7 +60,7 @@ class AppHeader:
 class Experiment:
     id: str
     pipeline_id: str
-    dataset_version: int
+    dataset_version: int # table version in lancedb
     app_snapshot: App
     name: str
     status: Literal["not_started","running","completed","stopped", "failed"]
