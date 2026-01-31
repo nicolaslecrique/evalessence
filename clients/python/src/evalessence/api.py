@@ -2,7 +2,9 @@
 from abc import ABC
 from dataclasses import dataclass
 from io import StringIO
-from typing import AsyncGenerator, TypeAlias, Sequence, Literal, Any
+from re import ASCII
+from typing import AsyncGenerator, TypeAlias, Sequence, Literal, Any, overload
+from enum import Enum, auto
 from typing import TypeAlias
 import pyarrow as pa 
 
@@ -79,83 +81,45 @@ class ExperimentSampleResult:
     result: JSONValue
 
 @dataclass
-class ExperimentPaginatedResults:
+class SamplePage:
+    items: pa.RecordBatchReader[Sample]
+    cursor: Any | None # None if there is no more results to load
     total_count: int
-    items: list[ExperimentSampleResult]
-    next_cursor: str | None
+    
+
+class OrderDirection(Enum):
+    ASC = auto()
+    DESC = auto()
+
 
 class Evalessence(ABC):
 
     # ---- App -----
-    async def list_apps(self) -> list[AppHeader]:
-        raise NotImplementedError()
-
-    async def create_app(self, name: str) -> App:
-        raise NotImplementedError()
-
-    async def get_app(self, app_id: str) -> App:
-        raise NotImplementedError()
-    
-    async def delete_app(self, app_id: str) -> None:
-        raise NotImplementedError()
-
-    async def update_app(self, app: App) -> App:
-        raise NotImplementedError()
+    async def list_apps(self) -> list[AppHeader]: ...
+    async def create_app(self, name: str) -> App:...
+    async def get_app(self, app_id: str) -> App:...
+    async def delete_app(self, app_id: str) -> None:...
+    async def update_app(self, app: App) -> App:...
 
     # --- Datasets ---
 
-    async def update_dataset(self, app_id: str, dataset_id: str, upsert_by_id: pa.RecordBatchReader[Sample], delete_by_id: pa.Array[str]) -> list[str]:
-        # atomic, return the IDs of the added samples.
-        raise NotImplementedError()
-
-    async def select(self, app_id: str, dataset_id: str, filter_expr: str | None, sort_by: str = "id", descending: bool = False, after_elt: tuple[Any, str] | None = None, limit: int | None = None) -> pa.RecordBatchReader[Sample]:
-        """
-        Docstring for select
-        
-        :param self: Description
-        :param app_id: Description
-        :type app_id: str
-        :param dataset_id: Description
-        :type dataset_id: str
-        :param filter_expr: Description
-        :type filter_expr: str | None
-        :param sort_by: Description
-        :type sort_by: str
-        :param after_elt: first tuple entry is consistant value with "sort_by" column, second tuple item is the id column.
-        :type after_elt: Any | None
-        :param limit: Description
-        :type limit: int | None
-        :return: Description
-        :rtype: Any
-        """
-        raise NotImplementedError()
-
-
-
-    # TODO: at the level of the Code API, it should probably be a list ?
-    async def upload_file_to_dataset(self, app_id: str, dataset_id: str, file: StringIO) -> None:
-        "file must be a jsonl file, where each entry has a unique 'sample_id' key"
-        raise NotImplementedError()
-
+    async def update_dataset(self, app_id: str, dataset_id: str, upsert_by_id: pa.RecordBatchReader[Sample], delete_by_id: pa.Array[str]) -> list[str]:...
+    async def select(self, app_id: str, dataset_id: str, *, where: str | None, order_by: str = "id", order_direction: OrderDirection = OrderDirection.ASC, limit: int | None = None) -> SamplePage: ...
+    async def select_next(self, app_id: str, dataset_id: str, *, cursor: Any, limit: int | None = None) -> SamplePage: ...
 
     # ----- Experiments -----------
 
-    async def run_experiment(self, experiment: ExperimentConfig) -> Experiment:
-        raise NotImplementedError()
+    async def run_experiment(self, experiment: ExperimentConfig) -> Experiment:...
     
-    async def list_experiments(self, app_id: str, pipeline_id: str) -> list[Experiment]:
-        raise NotImplementedError()
+    async def list_experiments(self, app_id: str, pipeline_id: str) -> list[Experiment]:...
     
-    async def get_experiment(self, app_id: str, experiment_id: str) -> Experiment:
-        raise NotImplementedError()
+    async def get_experiment(self, app_id: str, experiment_id: str) -> Experiment:...
 
-    async def stream_experiment_results(self, app_id: str, experiment_id: str) -> AsyncGenerator[ExperimentSampleResult, None]:
-        raise NotImplementedError()
+    async def stream_experiment_results(self, app_id: str, experiment_id: str) -> AsyncGenerator[ExperimentSampleResult, None]:...
     
     async def load_experiment_results(
         self, 
         experiment_id: str, 
         limit: int = 100, 
         cursor: str | None = None
-    ) -> ExperimentPaginatedResults:
-        raise NotImplementedError()
+    ) -> ExperimentPaginatedResults:...
