@@ -1,9 +1,8 @@
 
 from abc import ABC
 from dataclasses import dataclass
-from io import StringIO
-from re import ASCII
-from typing import AsyncGenerator, TypeAlias, Sequence, Literal, Any, overload
+from pydantic import BaseModel
+from typing import AsyncGenerator, Iterable, TypeAlias, Literal, Any
 from enum import Enum, auto
 from typing import TypeAlias
 import pyarrow as pa 
@@ -12,34 +11,29 @@ import pyarrow as pa
 
 # --- App properties, stored in yaml file ---
 
-@dataclass
-class Dataset:
+class Dataset(BaseModel):
     id: str
     name: str
 
-@dataclass
-class Env:
+class Env(BaseModel):
     id: str
     url: str
     name: str
 
-@dataclass
-class Pipeline:
+class Pipeline(BaseModel):
     id: str
     name: str
     route: str
     env_id: str
     dataset_id: str
 
-@dataclass
-class AppKey:
+class AppKey(BaseModel):
     id: str
     version: int # to prevent concurrent updates or Experiment started on an deprecated version of the App.
 
 
 # One yaml file by App, ({app_id}.yaml)
-@dataclass
-class App:
+class App(BaseModel):
     key: AppKey
     name: str
     envs: list[Env]
@@ -49,21 +43,26 @@ class App:
 
 # -------- add-hoc structure for API
 
-@dataclass
-class AppHeader:
+class AppHeader(BaseModel):
     id: str
     name: str
 
 # --- Experiments and Dataset content, stored in lancedb ----
 
-@dataclass
-class Experiment:
+
+class ExperimentStatus(str, Enum):
+    NOT_STARTED = "not_started"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+class Experiment(BaseModel):
     id: str
+    name: str
     pipeline_id: str
     dataset_version: int # table version in lancedb
     app_snapshot: App
-    name: str
-    status: Literal["not_started","running","completed","stopped", "failed"]
+    status: ExperimentStatus
 
 JSONValue: TypeAlias = (
     dict[str, "JSONValue"] 
@@ -75,62 +74,56 @@ JSONValue: TypeAlias = (
     | None
 )
 
-class Sample:
+class Sample(BaseModel):
     sample_id: str
     value: JSONValue
 
-class ExperimentSampleResult:
+class ExperimentSampleResult(BaseModel):
     sample_id: str
+    input: JSONValue
     result: JSONValue
 
-@dataclass
 class SamplePage:
     items: pa.RecordBatchReader[Sample]
     cursor: Any | None # None if there is no more results to load
     total_count: int
     
 
-class OrderDirection(Enum):
-    ASC = auto()
-    DESC = auto()
+class OrderDirection(str, Enum):
+    ASC = "asc"
+    DESC = "desc"
 
-@dataclass
-class PipelineInstance:
-    id: str
-    name: str
-    route: str
-    env: Env
 
-class Evalessence(ABC):
+SampleSet =  pa.RecordBatchReader[Sample] | pa.RecordBatch[Sample] | pa.Table[Sample] | Iterable[Sample]
+IdSet = pa.Array[str] | Iterable[str]
 
-    # ---- App -----
-    async def list_apps(self) -> list[AppHeader]: ...
-    async def create_app(self, name: str) -> App:...
-    async def get_app(self, app_id: str) -> App:...
-    async def delete_app(self, app_id: str) -> None:...
-    async def update_app(self, app: App) -> App:...
 
-    # --- Datasets ---
+class ExperimentSampleResultPage:
+    items: pa.RecordBatchReader[ExperimentSampleResult]
+    cursor: Any | None # None if there is no more results to load
+    total_count: int
 
-    async def update_dataset(self, app_key: AppKey, dataset_id: str, upsert_by_id: pa.RecordBatchReader[Sample], delete_by_id: pa.Array[str]) -> list[str]:...
+class AppServices(ABC):
+
+    async def list(self) -> list[AppHeader]: ...
+    async def create(self, name: str) -> App:...
+    async def get(self, app_id: str) -> App:...
+    async def delete(self, app_id: str) -> None:...
+    async def update(self, app: App) -> App:...
+
+class DatasetServices(ABC):
+    async def update(self, app_key: AppKey, dataset_id: str, upsert_by_id: SampleSet, delete_by_id: IdSet) -> list[str]:... # create the table if it doesn't exists
     async def select(self, app_key: AppKey, dataset_id: str, *, where: str | None, order_by: str = "id", order_direction: OrderDirection = OrderDirection.ASC, limit: int | None = None) -> SamplePage: ...
     async def select_next(self, app_key: AppKey, dataset_id: str, *, cursor: Any, limit: int | None = None) -> SamplePage: ...
 
-    # ----- Experiments -----------
+class ExperimentServices(ABC):
 
-    async def create_experiment(self, app_key: AppKey, pipeline_id: str, name: str) -> str: ...
-    async def run_experiment(self, experiment_id: str) -> None:... # start or continue the experiment
-    async def list_experiments(self, app_id: str) -> list[Experiment]:...
-    async def get_experiment(self, experiment_id: str) -> Experiment:...
+    async def create(self, app_key: AppKey, pipeline_id: str, name: str) -> str: ...
+    async def run(self, experiment_id: str) -> None:... # start or continue the experiment, no-op if already started
+    async def list(self, app_id: str) -> list[Experiment]:...
+    async def get(self, experiment_id: str) -> Experiment:...
 
-    # TODO: how to run an experiment in background and not close the application ? should it be blocking ? should it return the results ?
+    async def select(self, experiment_id: str, *, where: str | None, order_by: str = "id", order_direction: OrderDirection = OrderDirection.ASC, limit: int | None = None) -> ExperimentSampleResultPage: ...
+    async def select_next(self, experiment_id: str, *, cursor: Any, limit: int | None = None) -> ExperimentSampleResultPage: ...
+    async def stream(self, experiment_id: str) -> AsyncGenerator[ExperimentSampleResult]: ...
 
-
-    async def stream_experiment_results(self, app_id: str, experiment_id: str) -> AsyncGenerator[ExperimentSampleResult, None]:...
-    
-    async def load_experiment_results(
-        self, 
-        experiment_id: str, 
-        limit: int = 100, 
-        cursor: str | None = None
-    ) -> ExperimentPaginatedResults:...
