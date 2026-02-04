@@ -1,9 +1,8 @@
 
 from abc import ABC
-from dataclasses import dataclass
 from pydantic import BaseModel
 from typing import AsyncGenerator, Iterable, TypeAlias, Literal, Any
-from enum import Enum, auto
+from enum import Enum
 from typing import TypeAlias
 import pyarrow as pa 
 
@@ -46,6 +45,18 @@ class App(BaseModel):
 class AppHeader(BaseModel):
     id: str
     name: str
+
+# -------- App
+
+class AppServices(ABC):
+
+    async def list(self) -> list[AppHeader]: ...
+    async def create(self, name: str) -> App:...
+    async def get(self, app_id: str) -> App:...
+    async def delete(self, app_id: str) -> None:...
+    async def update(self, app: App) -> App:...
+
+
 
 # --- Experiments and Dataset content, stored in lancedb ----
 
@@ -103,13 +114,6 @@ class ExperimentSampleResultPage:
     cursor: Any | None # None if there is no more results to load
     total_count: int
 
-class AppServices(ABC):
-
-    async def list(self) -> list[AppHeader]: ...
-    async def create(self, name: str) -> App:...
-    async def get(self, app_id: str) -> App:...
-    async def delete(self, app_id: str) -> None:...
-    async def update(self, app: App) -> App:...
 
 class DatasetServices(ABC):
     async def update(self, app_key: AppKey, dataset_id: str, upsert_by_id: SampleSet, delete_by_id: IdSet) -> list[str]:... # create the table if it doesn't exists

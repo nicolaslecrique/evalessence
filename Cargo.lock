@@ -122,7 +122,8 @@ name = "evalessence-api"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "serde_json",
+ "serde",
+ "thiserror",
 ]
 
 [[package]]
@@ -133,7 +134,6 @@ dependencies = [
  "evalessence-api",
  "futures",
  "reqwest",
- "serde_json",
  "tokio",
 ]
 
