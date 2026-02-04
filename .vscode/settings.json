@@ -3,5 +3,8 @@
   "python.terminal.activateEnvInCurrentTerminal": true,
   "python.analysis.stubPath": "typings",
   "python.analysis.useLibraryCodeForTypes": true,
-  "python.analysis.typeCheckingMode": "basic"
+  "python.analysis.typeCheckingMode": "basic",
+  "files.exclude": {
+    "**/.git": false
+  }
 }
