@@ -2,31 +2,49 @@ use serde::{Deserialize, Serialize};
 use async_trait::async_trait;
 use thiserror::Error;
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(transparent)]
+pub struct AppId(pub String);
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(transparent)]
+pub struct DatasetId(pub String);
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(transparent)]
+pub struct EnvId(pub String);
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(transparent)]
+pub struct PipelineId(pub String);
+
+
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Dataset {
-    pub id: String,
+    pub id: DatasetId,
     pub name: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Env {
-    pub id: String,
+    pub id: EnvId,
     pub url: String,
     pub name: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Pipeline {
-    pub id: String,
+    pub id: PipelineId,
     pub name: String,
     pub route: String,
-    pub env_id: String,
-    pub dataset_id: String,
+    pub env_id: EnvId,
+    pub dataset_id: DatasetId,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppKey {
-    pub id: String,
+    pub id: AppId,
     pub version: u64,
 }
 
@@ -41,7 +59,7 @@ pub struct App {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppHeader {
-    pub id: String,
+    pub id: AppId,
     pub name: String,
 }
 
