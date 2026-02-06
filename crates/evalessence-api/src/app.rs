@@ -42,15 +42,11 @@ pub struct Pipeline {
     pub dataset_id: DatasetId,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AppKey {
-    pub id: AppId,
-    pub version: u64,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct App {
-    pub key: AppKey,
+    pub id: AppId,
+    pub version: u64,
     pub name: String,
     pub envs: Vec<Env>,
     pub datasets: Vec<Dataset>,
@@ -68,8 +64,8 @@ pub struct AppHeader {
 pub trait AppServices: Send + Sync {
     async fn list(&self) -> AppResult<Vec<AppHeader>>;
     async fn create(&self, name: String) -> AppResult<App>;
-    async fn get(&self, app_id: &str) -> AppResult<App>;
-    async fn delete(&self, app_id: &str) -> AppResult<()>;
+    async fn get(&self, app_id: AppId) -> AppResult<App>;
+    async fn delete(&self, app_id: AppId) -> AppResult<()>;
     async fn update(&self, app: App) -> AppResult<App>;
 }
 
