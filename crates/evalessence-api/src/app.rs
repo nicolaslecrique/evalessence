@@ -60,6 +60,16 @@ pub struct AppHeader {
 }
 
 
+pub struct AppLoadFailure {
+    pub file_name: String,
+    pub error: AppLoadError,
+}
+
+pub struct AppsList {
+    pub app_headers: Vec<AppHeader>,
+    pub failures: Vec<AppLoadFailure>,
+}
+
 #[async_trait]
 pub trait AppServices: Send + Sync {
     async fn list(&self) -> AppResult<Vec<AppHeader>>;
@@ -67,6 +77,16 @@ pub trait AppServices: Send + Sync {
     async fn get(&self, app_id: AppId) -> AppResult<App>;
     async fn delete(&self, app_id: AppId) -> AppResult<()>;
     async fn update(&self, app: App) -> AppResult<App>;
+}
+
+
+#[derive(Debug, thiserror::Error)]
+pub enum AppLoadError {
+    #[error("IO error reading file: {0}")]
+    Io(#[from] std::io::Error),
+
+    #[error("Invalid format: {0}")]
+    InvalidFormat(String),
 }
 
 
