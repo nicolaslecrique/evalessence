@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use async_trait::async_trait;
 use thiserror::Error;
+use anyhow;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(transparent)]
@@ -46,63 +47,41 @@ pub struct Pipeline {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct App {
     pub id: AppId,
-    pub version: u64,
     pub name: String,
     pub envs: Vec<Env>,
     pub datasets: Vec<Dataset>,
     pub pipelines: Vec<Pipeline>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AppHeader {
-    pub id: AppId,
-    pub name: String,
-}
-
-
-pub struct AppLoadFailure {
-    pub file_name: String,
-    pub error: AppLoadError,
-}
-
-pub struct AppsList {
-    pub app_headers: Vec<AppHeader>,
-    pub failures: Vec<AppLoadFailure>,
+    pub etag: String,
+    pub filename: String,
 }
 
 #[async_trait]
 pub trait AppServices: Send + Sync {
-    async fn list(&self) -> AppResult<Vec<AppHeader>>;
+
+    /// load all apps in the config directory with the format app-{id}.yaml
+    async fn list(&self) -> AppResult<Vec<AppResult<App>>>;
     async fn create(&self, name: String) -> AppResult<App>;
-    async fn get(&self, app_id: AppId) -> AppResult<App>;
-    async fn delete(&self, app_id: AppId) -> AppResult<()>;
+    async fn get(&self, filename: String) -> AppResult<App>;
+    async fn delete(&self, filename: String) -> AppResult<()>;
     async fn update(&self, app: App) -> AppResult<App>;
-}
-
-
-#[derive(Debug, thiserror::Error)]
-pub enum AppLoadError {
-    #[error("IO error reading file: {0}")]
-    Io(#[from] std::io::Error),
-
-    #[error("Invalid format: {0}")]
-    InvalidFormat(String),
 }
 
 
 #[derive(Error, Debug)]
 pub enum AppError {
-    #[error("App with ID {0} not found")]
-    NotFound(String),
+    #[error("App config file '{filename}' not found")]
+    NotFound {filename: String},
     
-    #[error("Version mismatch for App {0}: expected {1}")]
-    Conflict(String, u64),
+    #[error("App config file '{filename}' has been modified, please reload it")]
+    Conflict {filename: String},
 
-    #[error("Internal service error: {0}")]
-    Internal(String),
+    #[error("Internal service error: {source}")]
+    Internal{
+        #[source]
+        source: anyhow::Error },
 
-    #[error("Validation failed: {0}")]
-    ValidationError(String),
+    #[error("App config file '{filename}' could not be loaded: invalid format")]
+    ValidationError {filename: String},
 }
 
 pub type AppResult<T> = Result<T, AppError>;

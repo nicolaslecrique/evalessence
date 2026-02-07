@@ -8,9 +8,10 @@ async-trait = {workspace = true}
 futures = { workspace = true }
 reqwest = { workspace = true }
 evalessence-api = { workspace = true }
+tokio = { workspace = true, features = ["fs", "io-util"] }
+serde-saphyr = "0.0.17"
 
 [dev-dependencies]
-tokio = { workspace = true }
 
 [lints]
 workspace = true
