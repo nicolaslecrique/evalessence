@@ -32,13 +32,13 @@ impl FileAppService {
     }
 
     // Helper to clean the name and add a random suffix
-    fn generate_id(&self, name: &str) -> AppId {
+    fn generate_id(name: &str) -> AppId {
         AppId(format!("{}-{}", slugify(name), nanoid!(4)))
     }
 
     // Helper to calculate ETag from raw bytes
-    fn calculate_etag(&self, bytes: &[u8]) -> String {
-        return blake3::hash(bytes).to_string();
+    fn calculate_etag(bytes: &[u8]) -> String {
+        blake3::hash(bytes).to_string()
     }
 
     fn get_path(&self, filename: &str) -> PathBuf {
@@ -62,7 +62,11 @@ impl AppServices for FileAppService {
                 let name = entry.file_name().to_string_lossy().into_owned();
 
                 // 2. Only proceed if it matches your pattern
-                (name.starts_with("app-") && name.ends_with(".yaml")).then_some(name)
+                (name.starts_with("app-")
+                    && Path::new(&name)
+                        .extension()
+                        .is_some_and(|ext| ext.eq_ignore_ascii_case("yaml")))
+                .then_some(name)
             })
             .then(|filename| async move {
                 // 3. Now we only call 'get' for valid filenames.
@@ -76,7 +80,7 @@ impl AppServices for FileAppService {
     }
 
     async fn create(&self, name: String) -> AppResult<App> {
-        let id = self.generate_id(&name);
+        let id = Self::generate_id(&name);
         let filename = format!("app-{id}.yaml");
 
         // create and save the AppConfig with empty envs/datasets/pipelines
@@ -120,7 +124,7 @@ impl AppServices for FileAppService {
             envs: config.envs,
             datasets: config.datasets,
             pipelines: config.pipelines,
-            etag: self.calculate_etag(&yaml_bytes),
+            etag: Self::calculate_etag(&yaml_bytes),
             filename,
         })
     }
@@ -137,39 +141,37 @@ impl AppServices for FileAppService {
     async fn update(&self, app: App) -> AppResult<App> {
         let path = self.get_path(&app.filename);
 
-        // Conflict check: hash existing file and compare with incoming etag
-        if path.exists() {
-            let current_bytes = fs::read(&path)
-                .await
-                .map_err(|e| AppError::Internal { source: e.into() })?;
-            let current_etag = self.calculate_etag(&current_bytes);
-            if current_etag != app.etag {
-                return Err(AppError::Conflict {
-                    filename: app.filename,
-                });
-            }
+        let current_bytes = fs::read(&path).await.map_err(|e| AppError::FileIoError {
+            filename: app.filename.clone(),
+            source: e.into(),
+        })?;
+        let current_etag = Self::calculate_etag(&current_bytes);
+        if current_etag != app.etag {
+            return Err(AppError::Conflict {
+                filename: app.filename.clone(),
+            });
         }
 
-        // Map App to AppConfig (stripping metadata)
         let config = AppConfig {
-            id: app.id.clone(),
-            name: app.name.clone(),
-            envs: app.envs.clone(),
-            datasets: app.datasets.clone(),
-            pipelines: app.pipelines.clone(),
+            id: app.id,
+            name: app.name,
+            envs: app.envs,
+            datasets: app.datasets,
+            pipelines: app.pipelines,
         };
 
-        let yaml_bytes =
-            serde_yaml::to_vec(&config).map_err(|e| AppError::Internal { source: e.into() })?;
-
-        fs::write(&path, &yaml_bytes)
-            .await
+        // 1. Serialize to an in-memory string (Sync)
+        let yaml_data = serde_saphyr::to_string(&config)
             .map_err(|e| AppError::Internal { source: e.into() })?;
 
-        // Return updated App with new ETag
-        Ok(App {
-            etag: self.calculate_etag(&yaml_bytes),
-            ..app
-        })
+        // 2. Write to the file (Async)
+        fs::write(path, yaml_data)
+            .await
+            .map_err(|e| AppError::FileIoError {
+                filename: app.filename.clone(),
+                source: e.into(),
+            })?;
+
+        self.get(app.filename).await
     }
 }
