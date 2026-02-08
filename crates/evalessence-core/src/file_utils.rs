@@ -1,10 +1,10 @@
 use atomicwrites::{AllowOverwrite, AtomicFile};
-use std::{io, io::Write, path::{Path, PathBuf}};
+use std::{io, io::Write, path::PathBuf};
 use tokio::task;
 
 pub async fn atomic_write_async(
-    path: impl Into<PathBuf>, 
-    data: impl Into<Vec<u8>> // Or use bytes::Bytes for zero-copy clones
+    path: impl Into<PathBuf>,
+    data: impl Into<Vec<u8>>, // Or use bytes::Bytes for zero-copy clones
 ) -> io::Result<()> {
     let path = path.into();
     let data = data.into();
