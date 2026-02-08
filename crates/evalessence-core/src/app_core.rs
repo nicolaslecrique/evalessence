@@ -51,7 +51,7 @@ impl FileAppService {
         let yaml_data = serde_saphyr::to_string(&config)
             .map_err(|e| AppError::Internal { source: e.into() })?;
 
-        atomic_write_async(self.get_path(&filename), yaml_data.into_bytes())
+        atomic_write_async(self.get_path(&filename), yaml_data)
             .await
             .map_err(|e| AppError::FileIoError {
                 filename: filename.clone(),
