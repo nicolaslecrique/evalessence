@@ -84,7 +84,11 @@ pub enum AppError {
     },
 
     #[error("App config file '{filename}' could not be loaded: invalid format")]
-    ValidationError { filename: String },
+    ValidationError {
+        filename: String,
+        #[source]
+        source: anyhow::Error,
+    },
 }
 
 pub type AppResult<T> = Result<T, AppError>;

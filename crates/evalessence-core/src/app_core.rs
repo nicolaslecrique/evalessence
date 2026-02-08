@@ -102,11 +102,13 @@ impl AppServices for FileAppService {
 
     async fn get(&self, filename: String) -> AppResult<App> {
         let path = self.get_path(&filename);
-        let file = fs::File::open(&path)
-            .await
-            .map_err(|_| AppError::NotFound { filename })?;
 
-        let config: AppConfig = serde_saphyr::from_reader(file)?;
+        let yaml = fs::read(&path)
+            .await
+            .map_err(|_| AppError::NotFound { filename: filename.clone() })?;
+
+        let config: AppConfig =
+            serde_saphyr::from_slice(&yaml).map_err(|e| AppError::ValidationError { filename: filename.clone(), source: e.into() })?;
 
         Ok(App {
             id: config.id,
@@ -114,7 +116,7 @@ impl AppServices for FileAppService {
             envs: config.envs,
             datasets: config.datasets,
             pipelines: config.pipelines,
-            etag: self.calculate_etag(&bytes),
+            etag: self.calculate_etag(&yaml),
             filename,
         })
     }
