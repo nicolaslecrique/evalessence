@@ -6,8 +6,9 @@ use slug::slugify;
 use std::path::{Path, PathBuf};
 use tokio::fs;
 use tokio::fs::DirEntry;
-use tokio_stream::wrappers::ReadDirStream;
+use tokio_stream::StreamExt;
 
+use tokio_stream::wrappers::ReadDirStream;
 /// The internal format saved to disk (no etag, no filename)
 #[derive(Debug, Serialize, Deserialize)]
 struct AppConfig {
@@ -52,7 +53,7 @@ impl AppServices for FileAppService {
             .map_err(|e| AppError::Internal { source: e.into() })?;
 
         let apps = ReadDirStream::new(entries)
-            .filter_map(|res: Result<DirEntry, std::io::Error>| async move {
+            .filter_map(|res: Result<DirEntry, std::io::Error>| {
                 // 1. If the OS fails to even give us an entry, we have no filename.
                 // Since we can't check if it's an "app-*.yaml" file, we must skip it.
                 let entry = res.ok()?;
@@ -75,19 +76,16 @@ impl AppServices for FileAppService {
 
     async fn create(&self, name: String) -> AppResult<App> {
         let id = self.generate_id(&name);
-        let filename = format!("app-{}.yaml", id.0);
+        let filename = format!("app-{id}.yaml");
 
-        let app = App {
-            id,
-            name,
+        // create and save the AppConfig with empty envs/datasets/pipelines
+        let config = AppConfig {
+            id: id.clone(),
+            name: name.clone(),
             envs: vec![],
             datasets: vec![],
             pipelines: vec![],
-            etag: String::new(), // Will be populated by update logic
-            filename,
         };
-
-        self.update(app).await
     }
 
     async fn get(&self, filename: String) -> AppResult<App> {

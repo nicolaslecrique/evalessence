@@ -1,11 +1,18 @@
-use serde::{Deserialize, Serialize};
-use async_trait::async_trait;
-use thiserror::Error;
 use anyhow;
+use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(transparent)]
 pub struct AppId(pub String);
+
+// Diplay impl for AppId to show only the inner string
+impl std::fmt::Display for AppId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(transparent)]
@@ -18,8 +25,6 @@ pub struct EnvId(pub String);
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(transparent)]
 pub struct PipelineId(pub String);
-
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Dataset {
@@ -43,7 +48,6 @@ pub struct Pipeline {
     pub dataset_id: DatasetId,
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct App {
     pub id: AppId,
@@ -57,7 +61,6 @@ pub struct App {
 
 #[async_trait]
 pub trait AppServices: Send + Sync {
-
     /// load all apps in the config directory with the format app-{id}.yaml
     async fn list(&self) -> AppResult<Vec<AppResult<App>>>;
     async fn create(&self, name: String) -> AppResult<App>;
@@ -66,22 +69,22 @@ pub trait AppServices: Send + Sync {
     async fn update(&self, app: App) -> AppResult<App>;
 }
 
-
 #[derive(Error, Debug)]
 pub enum AppError {
     #[error("App config file '{filename}' not found")]
-    NotFound {filename: String},
-    
+    NotFound { filename: String },
+
     #[error("App config file '{filename}' has been modified, please reload it")]
-    Conflict {filename: String},
+    Conflict { filename: String },
 
     #[error("Internal service error: {source}")]
-    Internal{
+    Internal {
         #[source]
-        source: anyhow::Error },
+        source: anyhow::Error,
+    },
 
     #[error("App config file '{filename}' could not be loaded: invalid format")]
-    ValidationError {filename: String},
+    ValidationError { filename: String },
 }
 
 pub type AppResult<T> = Result<T, AppError>;
