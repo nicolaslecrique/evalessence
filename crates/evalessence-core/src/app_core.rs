@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use evalessence_api::app::{App, AppError, AppId, AppResult, AppServices, Dataset, Env, Pipeline};
 use nanoid::nanoid;
 use serde::{Deserialize, Serialize};
+use serde_saphyr;
 use slug::slugify;
 use std::path::{Path, PathBuf};
 use tokio::fs;
@@ -86,6 +87,12 @@ impl AppServices for FileAppService {
             datasets: vec![],
             pipelines: vec![],
         };
+
+        let mut file = std::fs::File::create(self.get_path(&filename))
+            .map_err(|e| AppError::Internal { source: e.into() })?;
+        serde_saphyr::to_io_writer(&mut file, &config);
+
+        self.get(filename).await
     }
 
     async fn get(&self, filename: String) -> AppResult<App> {
