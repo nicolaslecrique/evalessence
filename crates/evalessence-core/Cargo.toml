@@ -9,8 +9,11 @@ futures = { workspace = true }
 reqwest = { workspace = true }
 evalessence-api = { workspace = true }
 tokio = { workspace = true, features = ["fs", "io-util"] }
-serde-saphyr = "0.0.17"
-
+serde-saphyr= {workspace = true}
+serde = { workspace = true, features = ["derive"] }
+blake3 = {workspace = true}
+nanoid = {workspace = true}
+slug = {workspace = true}
 [dev-dependencies]
 
 [lints]
