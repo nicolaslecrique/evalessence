@@ -2,6 +2,8 @@ use atomicwrites::{AllowOverwrite, AtomicFile};
 use std::{io, io::Write, path::PathBuf};
 use tokio::task;
 
+// Utility for atomic file writes in an async context
+// we need this because several calls might try to write the same file at the same time
 pub async fn atomic_write_async(
     path: impl Into<PathBuf>,
     data: impl Into<Vec<u8>>, // Or use bytes::Bytes for zero-copy clones
