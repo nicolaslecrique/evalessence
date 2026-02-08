@@ -15,6 +15,7 @@ serde = { workspace = true, features = ["derive"] }
 blake3 = {workspace = true}
 nanoid = {workspace = true}
 slug = {workspace = true}
+atomicwrites = {workspace = true}
 
 [dev-dependencies]
 
