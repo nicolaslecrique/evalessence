@@ -71,10 +71,14 @@ pub trait AppServices: Send + Sync {
 
 #[derive(Error, Debug)]
 pub enum AppError {
-    #[error("App config file '{filename}' not found")]
-    NotFound { filename: String },
+    #[error("Operation failed on App config file '{filename}': {source}")]
+    FileIoError {
+        filename: String,
+        #[source]
+        source: anyhow::Error,
+    },
 
-    #[error("App config file '{filename}' has been modified, please reload it")]
+    #[error("App config file '{filename}' has been modified externally, please reload it")]
     Conflict { filename: String },
 
     #[error("Internal service error: {source}")]
@@ -83,7 +87,9 @@ pub enum AppError {
         source: anyhow::Error,
     },
 
-    #[error("App config file '{filename}' could not be loaded: invalid format")]
+    #[error(
+        "App config file '{filename}' could not be loaded bacause of an invalid format: {source}"
+    )]
     ValidationError {
         filename: String,
         #[source]

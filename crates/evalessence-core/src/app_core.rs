@@ -103,12 +103,16 @@ impl AppServices for FileAppService {
     async fn get(&self, filename: String) -> AppResult<App> {
         let path = self.get_path(&filename);
 
-        let yaml = fs::read(&path)
-            .await
-            .map_err(|_| AppError::NotFound { filename: filename.clone() })?;
+        let yaml_bytes = fs::read(&path).await.map_err(|e| AppError::FileIoError {
+            filename: filename.clone(),
+            source: e.into(),
+        })?;
 
         let config: AppConfig =
-            serde_saphyr::from_slice(&yaml).map_err(|e| AppError::ValidationError { filename: filename.clone(), source: e.into() })?;
+            serde_saphyr::from_slice(&yaml_bytes).map_err(|e| AppError::ValidationError {
+                filename: filename.clone(),
+                source: e.into(),
+            })?;
 
         Ok(App {
             id: config.id,
@@ -116,7 +120,7 @@ impl AppServices for FileAppService {
             envs: config.envs,
             datasets: config.datasets,
             pipelines: config.pipelines,
-            etag: self.calculate_etag(&yaml),
+            etag: self.calculate_etag(&yaml_bytes),
             filename,
         })
     }
@@ -124,7 +128,10 @@ impl AppServices for FileAppService {
     async fn delete(&self, filename: String) -> AppResult<()> {
         fs::remove_file(self.get_path(&filename))
             .await
-            .map_err(|_| AppError::NotFound { filename })
+            .map_err(|e| AppError::FileIoError {
+                filename,
+                source: e.into(),
+            })
     }
 
     async fn update(&self, app: App) -> AppResult<App> {
