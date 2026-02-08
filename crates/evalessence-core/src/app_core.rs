@@ -88,23 +88,25 @@ impl AppServices for FileAppService {
             pipelines: vec![],
         };
 
-        let mut file = std::fs::File::create(self.get_path(&filename))
+        // 1. Serialize to an in-memory string (Sync)
+        let yaml_data = serde_saphyr::to_string(&config)
             .map_err(|e| AppError::Internal { source: e.into() })?;
-        serde_saphyr::to_io_writer(&mut file, &config);
+
+        // 2. Write to the file (Async)
+        fs::write(self.get_path(&filename), yaml_data)
+            .await
+            .map_err(|e| AppError::Internal { source: e.into() })?;
 
         self.get(filename).await
     }
 
     async fn get(&self, filename: String) -> AppResult<App> {
         let path = self.get_path(&filename);
-        let bytes = fs::read(&path).await.map_err(|_| AppError::NotFound {
-            filename: filename.clone(),
-        })?;
+        let file = fs::File::open(&path)
+            .await
+            .map_err(|_| AppError::NotFound { filename })?;
 
-        let config: AppConfig =
-            serde_yaml::from_slice(&bytes).map_err(|_| AppError::ValidationError {
-                filename: filename.clone(),
-            })?;
+        let config: AppConfig = serde_saphyr::from_reader(file)?;
 
         Ok(App {
             id: config.id,
