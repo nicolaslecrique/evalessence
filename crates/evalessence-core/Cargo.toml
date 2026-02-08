@@ -9,11 +9,13 @@ futures = { workspace = true }
 reqwest = { workspace = true }
 evalessence-api = { workspace = true }
 tokio = { workspace = true, features = ["fs", "io-util"] }
+tokio-stream = { workspace = true }
 serde-saphyr= {workspace = true}
 serde = { workspace = true, features = ["derive"] }
 blake3 = {workspace = true}
 nanoid = {workspace = true}
 slug = {workspace = true}
+
 [dev-dependencies]
 
 [lints]

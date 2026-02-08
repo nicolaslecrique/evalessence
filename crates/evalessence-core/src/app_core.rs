@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 use slug::slugify;
 use std::path::{Path, PathBuf};
 use tokio::fs;
+use tokio::fs::DirEntry;
+use tokio_stream::wrappers::ReadDirStream;
 
 /// The internal format saved to disk (no etag, no filename)
 #[derive(Debug, Serialize, Deserialize)]
@@ -45,18 +47,30 @@ impl FileAppService {
 #[async_trait]
 impl AppServices for FileAppService {
     async fn list(&self) -> AppResult<Vec<AppResult<App>>> {
-        let mut entries = fs::read_dir(&self.config_dir)
+        let entries = fs::read_dir(&self.config_dir)
             .await
             .map_err(|e| AppError::Internal { source: e.into() })?;
 
-        let mut results = Vec::new();
-        while let Ok(Some(entry)) = entries.next_entry().await {
-            let filename = entry.file_name().to_string_lossy().to_string();
-            if filename.starts_with("app-") && filename.ends_with(".yaml") {
-                results.push(self.get(filename).await);
-            }
-        }
-        Ok(results)
+        let apps = ReadDirStream::new(entries)
+            .filter_map(|res: Result<DirEntry, std::io::Error>| async move {
+                // 1. If the OS fails to even give us an entry, we have no filename.
+                // Since we can't check if it's an "app-*.yaml" file, we must skip it.
+                let entry = res.ok()?;
+
+                let name = entry.file_name().to_string_lossy().into_owned();
+
+                // 2. Only proceed if it matches your pattern
+                (name.starts_with("app-") && name.ends_with(".yaml")).then_some(name)
+            })
+            .then(|filename| async move {
+                // 3. Now we only call 'get' for valid filenames.
+                // Any error here will be preserved in your Vec<AppResult<App>>.
+                self.get(filename).await
+            })
+            .collect()
+            .await;
+
+        Ok(apps)
     }
 
     async fn create(&self, name: String) -> AppResult<App> {
