@@ -18,6 +18,9 @@ slug = {workspace = true}
 atomicwrites = {workspace = true}
 
 [dev-dependencies]
+tempfile = {workspace = true}
+tokio = {workspace = true, features = ["macros"] }
+pretty_assertions = {workspace = true}
 
 [lints]
 workspace = true

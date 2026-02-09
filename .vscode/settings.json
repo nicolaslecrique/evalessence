@@ -10,5 +10,7 @@
   "[rust]": {
     "editor.defaultFormatter": "rust-lang.rust-analyzer",
     "editor.formatOnSave": true
-  }
+  },
+  // this ensure vscode has it's own target dir for rust-analyzer, preventing it from interfering with cargo's target dir
+  "rust-analyzer.cargo.targetDir": true
 }
