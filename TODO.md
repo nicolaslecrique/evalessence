@@ -5,6 +5,6 @@
 * Manage several pipelines with one API
 * Manage versioning of pipelines
 * Allow to run one or a subset of all samples
-
+* Compute confidence intervals by default.
 
 

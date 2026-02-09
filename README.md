@@ -11,7 +11,7 @@
 * It can run on the developper computer, or as a server
 * Versioning is done through data transformation (minijinja?)
 * EvalEssence provides infrastructure (UI template, storage, versionning, search & filter, auth...) and defaults (dashboards, views, metrics, judges)
-
+* est practices made easy (data lineage, versionning, reproductibilty, metrics)
 
 ## MVP Specifications
 
