@@ -61,20 +61,6 @@ class AppServices(ABC):
 # --- Experiments and Dataset content, stored in lancedb ----
 
 
-class ExperimentStatus(str, Enum):
-    NOT_STARTED = "not_started"
-    RUNNING = "running"
-    COMPLETED = "completed"
-    FAILED = "failed"
-
-class Experiment(BaseModel):
-    id: str
-    name: str
-    pipeline_id: str
-    dataset_version: int # table version in lancedb
-    app_snapshot: App
-    status: ExperimentStatus
-
 JSONValue: TypeAlias = (
     dict[str, "JSONValue"] 
     | list["JSONValue"] 
@@ -88,11 +74,6 @@ JSONValue: TypeAlias = (
 class Sample(BaseModel):
     sample_id: str
     value: JSONValue
-
-class ExperimentSampleResult(BaseModel):
-    sample_id: str
-    input: JSONValue
-    result: JSONValue
 
 class SamplePage:
     items: pa.RecordBatchReader[Sample]
@@ -109,16 +90,40 @@ SampleSet =  pa.RecordBatchReader[Sample] | pa.RecordBatch[Sample] | pa.Table[Sa
 IdSet = pa.Array[str] | Iterable[str]
 
 
+class DatasetServices(ABC):
+    async def update(self, app_id: str, dataset_id: str, upsert_by_id: SampleSet, delete_by_id: IdSet) -> list[str]:... # create the table if it doesn't exists
+    async def select(self, app_id: str, dataset_id: str, *, where: str | None, order_by: str = "id", order_direction: OrderDirection = OrderDirection.ASC, limit: int | None = None) -> SamplePage: ...
+    async def select_next(self, app_id: str, dataset_id: str, *, cursor: Any, limit: int | None = None) -> SamplePage: ...
+
+
+
+
+
+class ExperimentStatus(str, Enum):
+    NOT_STARTED = "not_started"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+class Experiment(BaseModel):
+    id: str
+    name: str
+    pipeline_id: str
+    dataset_version: int # table version in lancedb
+    app_snapshot: App
+    status: ExperimentStatus
+
+class ExperimentSampleResult(BaseModel):
+    sample_id: str
+    input: JSONValue
+    result: JSONValue
+
+
 class ExperimentSampleResultPage:
     items: pa.RecordBatchReader[ExperimentSampleResult]
     cursor: Any | None # None if there is no more results to load
     total_count: int
 
-
-class DatasetServices(ABC):
-    async def update(self, app_key: AppKey, dataset_id: str, upsert_by_id: SampleSet, delete_by_id: IdSet) -> list[str]:... # create the table if it doesn't exists
-    async def select(self, app_key: AppKey, dataset_id: str, *, where: str | None, order_by: str = "id", order_direction: OrderDirection = OrderDirection.ASC, limit: int | None = None) -> SamplePage: ...
-    async def select_next(self, app_key: AppKey, dataset_id: str, *, cursor: Any, limit: int | None = None) -> SamplePage: ...
 
 class ExperimentServices(ABC):
 
