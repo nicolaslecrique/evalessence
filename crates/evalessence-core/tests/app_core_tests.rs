@@ -1,7 +1,20 @@
+// remove lints that do not make sense in tests
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing,
+    clippy::too_many_lines,
+    clippy::case_sensitive_file_extension_comparisons
+)]
+
 use evalessence_api::app::{AppError, AppServices};
 use evalessence_core::app_core::FileAppService;
 use tempfile::tempdir;
 use tokio::fs;
+
+// use pretty_assertions for better test failure diffs
+use pretty_assertions::assert_eq;
 
 // Helper: read file bytes
 async fn read_bytes(path: &std::path::Path) -> Vec<u8> {
@@ -38,12 +51,12 @@ async fn get_reads_existing_file_and_computes_etag() {
     let filename = "app-test.yaml";
     let path = td.path().join(filename);
 
-    let yaml = r#"id: test-id
+    let yaml = "id: test-id
 name: Test App
 envs: []
 datasets: []
 pipelines: []
-"#;
+";
 
     fs::write(&path, yaml).await.unwrap();
 
@@ -91,7 +104,7 @@ async fn list_filters_non_app_files_and_preserves_get_errors() {
                     filename: _,
                     source: _,
                 } => errs += 1,
-                other => panic!("unexpected error: {:?}", other),
+                other => panic!("unexpected error: {other:?}"),
             },
         }
     }
@@ -126,7 +139,7 @@ async fn update_succeeds_with_matching_etag_and_conflicts_on_stale_etag() {
     let err = svc.update(stale).await.unwrap_err();
     match err {
         AppError::Conflict { filename: f } => assert_eq!(f, filename),
-        other => panic!("expected conflict, got {:?}", other),
+        other => panic!("expected conflict, got {other:?}"),
     }
 }
 
@@ -149,7 +162,7 @@ async fn delete_removes_file_and_get_fails_afterwards() {
             filename: _,
             source: _,
         } => {}
-        other => panic!("expected file io error, got {:?}", other),
+        other => panic!("expected file io error, got {other:?}"),
     }
 }
 
@@ -167,6 +180,6 @@ async fn get_non_existent_file_returns_fileioerror() {
             filename: _,
             source: _,
         } => {}
-        other => panic!("expected file io error, got {:?}", other),
+        other => panic!("expected file io error, got {other:?}"),
     }
 }
