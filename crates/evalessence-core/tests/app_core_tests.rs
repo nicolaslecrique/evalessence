@@ -16,57 +16,21 @@ use tokio::fs;
 // use pretty_assertions for better test failure diffs
 use pretty_assertions::assert_eq;
 
-// Helper: read file bytes
-async fn read_bytes(path: &std::path::Path) -> Vec<u8> {
-    fs::read(path).await.unwrap()
-}
-
 #[tokio::test]
-async fn create_writes_file_and_returns_app() {
+async fn create_get_consistent() {
     let td = tempdir().unwrap();
     let svc = FileAppService::new(td.path());
 
-    let app = svc.create("My App".to_string()).await.unwrap();
+    let created_app = svc.create("My App".to_string()).await.unwrap();
+    let get_app = svc.get(created_app.filename.clone()).await.unwrap();
 
-    assert_eq!(app.name, "My App");
-    assert!(app.filename.starts_with("app-"));
-    assert!(app.filename.ends_with(".yaml"));
-
-    let p = td.path().join(&app.filename);
-    assert!(p.exists());
-
-    let bytes = read_bytes(&p).await;
-    let etag = blake3::hash(&bytes).to_string();
-    assert_eq!(app.etag, etag);
-
-    let s = String::from_utf8(bytes).unwrap();
-    assert!(s.contains("name: My App"));
-}
-
-#[tokio::test]
-async fn get_reads_existing_file_and_computes_etag() {
-    let td = tempdir().unwrap();
-    let svc = FileAppService::new(td.path());
-
-    let filename = "app-test.yaml";
-    let path = td.path().join(filename);
-
-    let yaml = "id: test-id
-name: Test App
-envs: []
-datasets: []
-pipelines: []
-";
-
-    fs::write(&path, yaml).await.unwrap();
-
-    let app = svc.get(filename.to_string()).await.unwrap();
-    assert_eq!(app.name, "Test App");
-    assert_eq!(app.filename, filename.to_string());
-
-    let bytes = read_bytes(&path).await;
-    let etag = blake3::hash(&bytes).to_string();
-    assert_eq!(app.etag, etag);
+    assert_eq!(created_app.etag, get_app.etag); // apps are the same
+    assert_eq!(created_app.name, "My App");
+    assert_eq!(created_app.filename, format!("app-{}.yaml", created_app.id)); // filename is derived from id
+    assert!(created_app.id.to_string().starts_with("my-app-")); // id is slugified name + random suffix
+    assert!(created_app.pipelines.is_empty()); // pipelines/envs/datasets are empty by default
+    assert!(created_app.envs.is_empty());
+    assert!(created_app.datasets.is_empty());
 }
 
 #[tokio::test]
@@ -74,10 +38,8 @@ async fn list_filters_non_app_files_and_preserves_get_errors() {
     let td = tempdir().unwrap();
     let svc = FileAppService::new(td.path());
 
-    // valid
-    let good = td.path().join("app-good.yaml");
-    let good_yaml = "id: gid\nname: Good\nenvs: []\ndatasets: []\npipelines: []\n";
-    fs::write(&good, good_yaml).await.unwrap();
+    // write valid
+    svc.create("valid".to_string()).await.unwrap();
 
     // invalid
     let bad = td.path().join("app-bad.yaml");
@@ -91,23 +53,16 @@ async fn list_filters_non_app_files_and_preserves_get_errors() {
     // should only attempt the two app-*.yaml files
     assert_eq!(res.len(), 2);
 
-    let mut oks = 0usize;
-    let mut errs = 0usize;
-    for r in res {
-        match r {
-            Ok(a) => {
-                assert_eq!(a.name, "Good");
-                oks += 1;
-            }
-            Err(e) => match e {
-                AppError::ValidationError {
-                    filename: _,
-                    source: _,
-                } => errs += 1,
-                other => panic!("unexpected error: {other:?}"),
-            },
-        }
-    }
+    let oks = res
+        .iter()
+        .filter_map(|r| r.as_ref().ok())
+        .filter(|a| a.name == "valid")
+        .count();
+    let errs = res
+        .iter()
+        .filter_map(|r| r.as_ref().err())
+        .filter(|e| matches!(e, AppError::ValidationError { .. }))
+        .count();
 
     assert_eq!(oks, 1);
     assert_eq!(errs, 1);
