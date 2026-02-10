@@ -8,6 +8,7 @@ serde = {workspace = true, features = ["derive"]}
 async-trait = {workspace = true}
 thiserror = { workspace = true }
 anyhow = { workspace = true}
+arrow = { workspace = true }
 
 [lints]
 workspace = true
