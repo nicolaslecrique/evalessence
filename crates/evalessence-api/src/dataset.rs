@@ -1,8 +1,19 @@
-use arrow::record_batch::RecordBatchReader;
+use arrow::array::StringArray;
+use arrow::datatypes::SchemaRef;
+use arrow::record_batch::RecordBatch;
+use futures::stream::BoxStream;
 use serde::{Deserialize, Serialize};
-use std::vec::Vec;
+use thiserror::Error; // Recommended for custom errors
 
-/// Represents the sort order
+#[derive(Error, Debug)]
+pub enum DatasetError {
+    #[error("Arrow error: {0}")]
+    ArrowError(#[from] arrow::error::ArrowError),
+    // Add other variants as needed
+}
+
+pub type Result<T> = std::result::Result<T, DatasetError>;
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum OrderDirection {
@@ -10,23 +21,31 @@ pub enum OrderDirection {
     Desc,
 }
 
+/// Combines the stream and its metadata
+pub struct DatasetStream {
+    pub schema: SchemaRef,
+    pub stream: BoxStream<'static, Result<RecordBatch>>,
+}
+
 #[async_trait::async_trait]
 pub trait DatasetServices: Send + Sync {
-    /// Create or update the table
+    /// Use &str for IDs to avoid ownership overhead.
+    /// Accept a stream for upserts to support large data migrations.
     async fn update(
         &self,
         dataset_id: String,
-        upsert_by_id: impl RecordBatchReader,
-        delete_by_id: impl arrow::array::Array,
-    ) -> ();
+        upsert_stream: DatasetStream,
+        delete_ids: StringArray,
+    ) -> Result<()>;
 
-    /// Select records from a dataset
+    /// Return the custom stream struct so the caller knows the schema
+    /// without having to poll the first batch.
     async fn select(
         &self,
         dataset_id: String,
         where_clause: Option<String>,
         order_by: Vec<(String, OrderDirection)>,
         limit: Option<usize>,
-    ) -> impl RecordBatchReader;
+        offset: Option<usize>,
+    ) -> Result<DatasetStream>;
 }
-// todo improve with https://gemini.google.com/app/3d61f0575b50eca8

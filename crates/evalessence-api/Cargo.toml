@@ -9,6 +9,7 @@ async-trait = {workspace = true}
 thiserror = { workspace = true }
 anyhow = { workspace = true}
 arrow = { workspace = true }
+futures = { workspace = true }
 
 [lints]
 workspace = true
