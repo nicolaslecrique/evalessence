@@ -1,5 +1,16 @@
 # EvalEssence
 
+## Setup
+
+* Install the [rust development toolchain](https://rust-lang.org/tools/install/)
+
+
+* Install `just`
+
+```console
+cargo install just
+```
+
 ## Vision
 
 * "Agnostic" regarding workflow, use-case, framework, programming language  
@@ -88,3 +99,5 @@
 * Filtering and search
 
 scripts to study: https://github.com/khvzak/script-bench-rs
+
+
