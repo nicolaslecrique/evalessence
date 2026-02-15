@@ -1,6 +1,6 @@
 use crate::file_utils::atomic_write_async;
 use async_trait::async_trait;
-use evalessence_api::app::{App, AppError, AppId, AppResult, AppServices, Dataset, Env, Pipeline};
+use evalessence_api::app::{App, AppError, AppId, AppResult, AppService, Dataset, Env, Pipeline};
 use nanoid::nanoid;
 use serde::{Deserialize, Serialize};
 use serde_saphyr;
@@ -63,7 +63,7 @@ impl FileAppService {
 }
 
 #[async_trait]
-impl AppServices for FileAppService {
+impl AppService for FileAppService {
     async fn list(&self) -> AppResult<Vec<AppResult<App>>> {
         let entries = fs::read_dir(&self.config_dir)
             .await

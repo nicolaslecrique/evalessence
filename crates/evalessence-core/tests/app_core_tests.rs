@@ -8,7 +8,7 @@
     clippy::case_sensitive_file_extension_comparisons
 )]
 
-use evalessence_api::app::{AppError, AppServices};
+use evalessence_api::app::{AppError, AppService};
 use evalessence_core::app_core::FileAppService;
 use tempfile::tempdir;
 use tokio::fs;

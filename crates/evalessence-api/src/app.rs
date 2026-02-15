@@ -60,7 +60,7 @@ pub struct App {
 }
 
 #[async_trait]
-pub trait AppServices: Send + Sync {
+pub trait AppService: Send + Sync {
     /// load all apps in the config directory with the format app-{id}.yaml
     async fn list(&self) -> AppResult<Vec<AppResult<App>>>;
     async fn create(&self, name: String) -> AppResult<App>;
