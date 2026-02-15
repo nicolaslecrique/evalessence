@@ -1,3 +1,4 @@
+use anyhow;
 use arrow::array::StringArray;
 use arrow::datatypes::SchemaRef;
 use arrow::record_batch::RecordBatch;
@@ -8,6 +9,12 @@ use thiserror::Error; // Recommended for custom errors
 pub enum DatasetError {
     #[error("Arrow error: {0}")]
     ArrowError(#[from] arrow::error::ArrowError),
+
+    #[error("Internal service error: {source}")]
+    Internal {
+        #[source]
+        source: anyhow::Error,
+    },
     // Add other variants as needed
 }
 
