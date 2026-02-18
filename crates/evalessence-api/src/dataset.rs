@@ -1,9 +1,7 @@
 use anyhow;
 use arrow::array::StringArray;
-use arrow::datatypes::SchemaRef;
-use arrow::record_batch::RecordBatch;
-use futures::stream::BoxStream;
-use thiserror::Error; // Recommended for custom errors
+use arrow::record_batch::RecordBatchReader;
+use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum DatasetError {
@@ -26,31 +24,52 @@ pub enum OrderDirection {
     Desc,
 }
 
-pub struct SendableRecordBatchStream {
-    pub schema: SchemaRef,
-    pub stream: BoxStream<'static, Result<RecordBatch>>,
-}
-
 pub enum Delete {
     ByIds(StringArray),
     Where(String),
 }
 
-#[async_trait::async_trait]
+pub type SendableRecordBatchReader = Box<dyn RecordBatchReader + Send + Sync>;
+
 pub trait DatasetService: Send + Sync {
-    async fn update(
+    /// Update a dataset with upsert and/or delete operations
+    ///
+    /// # Arguments
+    /// * `dataset_id` - The identifier of the dataset to update
+    /// * `upsert` - Optional record batch reader containing rows to insert or update
+    /// * `delete` - Optional delete specification (by IDs or WHERE clause)
+    ///
+    /// # Errors
+    /// Returns a [`DatasetError`] if the update operation fails, for example due to an Arrow
+    /// error or an internal service error.
+    fn update(
         &self,
         dataset_id: String,
-        upsert: Option<SendableRecordBatchStream>,
+        upsert: Option<SendableRecordBatchReader>,
         delete: Option<Delete>,
     ) -> Result<()>;
 
-    async fn select(
+    /// Select data from a dataset
+    ///
+    /// # Arguments
+    /// * `dataset_id` - The identifier of the dataset to query
+    /// * `where_clause` - Optional SQL WHERE clause filter
+    /// * `order_by` - Optional list of (column, direction) pairs for sorting
+    /// * `limit` - Optional maximum number of rows to return
+    /// * `offset` - Optional number of rows to skip
+    ///
+    /// # Returns
+    /// A `RecordBatchReader` that can be used to iterate over the results
+    ///
+    /// # Errors
+    /// Returns a [`DatasetError`] if the select operation fails, for example due to an Arrow
+    /// error or an internal service error.
+    fn select(
         &self,
         dataset_id: String,
         where_clause: Option<String>,
         order_by: Option<Vec<(String, OrderDirection)>>,
         limit: Option<usize>,
         offset: Option<usize>,
-    ) -> Result<SendableRecordBatchStream>;
+    ) -> Result<SendableRecordBatchReader>;
 }
