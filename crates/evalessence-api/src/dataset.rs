@@ -40,8 +40,8 @@ pub trait DatasetService: Send + Sync {
     /// * `delete` - Optional delete specification (by IDs or WHERE clause)
     ///
     /// # Errors
-    /// Returns a [`DatasetError`] if the update operation fails, for example due to an Arrow
-    /// error or an internal service error.
+    /// Returns a [`DatasetError::ArrowError`] if an Arrow operation fails, or
+    /// [`DatasetError::Internal`] if an internal service error occurs.
     fn update(
         &self,
         dataset_id: String,
@@ -62,8 +62,8 @@ pub trait DatasetService: Send + Sync {
     /// A `RecordBatchReader` that can be used to iterate over the results
     ///
     /// # Errors
-    /// Returns a [`DatasetError`] if the select operation fails, for example due to an Arrow
-    /// error or an internal service error.
+    /// Returns a [`DatasetError::ArrowError`] if an Arrow operation fails, or
+    /// [`DatasetError::Internal`] if an internal service error occurs.
     fn select(
         &self,
         dataset_id: String,
