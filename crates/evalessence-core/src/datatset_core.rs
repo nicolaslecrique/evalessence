@@ -1,29 +1,24 @@
 use arrow::record_batch::RecordBatchReader;
-use duckdb::{DuckdbConnectionManager, params};
+use duckdb::{Connection, params};
 use evalessence_api::dataset::{
     DatasetError, DatasetService, Delete, OrderDirection, Result, SendableRecordBatchReader,
 };
-use r2d2::Pool;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 
 pub struct DuckDbDatasetService {
-    pool: Pool<DuckdbConnectionManager>,
+    conn: Arc<Mutex<Connection>>,
     base_path: PathBuf,
 }
 
 impl DuckDbDatasetService {
     pub fn new(base_path: impl AsRef<Path>) -> Result<Self> {
-        let manager = DuckdbConnectionManager::file(base_path.as_ref()).map_err(|e| {
-            DatasetError::Internal {
-                source: anyhow::anyhow!("Failed to create connection manager: {}", e),
-            }
-        })?;
-        let pool = Pool::new(manager).map_err(|e| DatasetError::Internal {
-            source: anyhow::anyhow!("Failed to create connection pool: {}", e),
+        let conn = Connection::open_in_memory().map_err(|e| DatasetError::Internal {
+            source: anyhow::anyhow!("Failed to open connection: {}", e),
         })?;
 
         Ok(Self {
-            pool,
+            conn: Arc::new(Mutex::new(conn)),
             base_path: base_path.as_ref().to_path_buf(),
         })
     }
@@ -34,8 +29,8 @@ impl DuckDbDatasetService {
 
     fn ensure_table_loaded(&self, dataset_id: &str) -> Result<()> {
         let path = self.dataset_path(dataset_id);
-        let conn = self.pool.get().map_err(|e| DatasetError::Internal {
-            source: anyhow::anyhow!("Failed to get connection from pool: {}", e),
+        let conn = self.conn.lock().map_err(|e| DatasetError::Internal {
+            source: anyhow::anyhow!("Failed to lock connection: {}", e),
         })?;
 
         if path.exists() {
@@ -54,8 +49,8 @@ impl DuckDbDatasetService {
 
     fn save_table(&self, dataset_id: &str) -> Result<()> {
         let path = self.dataset_path(dataset_id);
-        let conn = self.pool.get().map_err(|e| DatasetError::Internal {
-            source: anyhow::anyhow!("Failed to get connection from pool: {}", e),
+        let conn = self.conn.lock().map_err(|e| DatasetError::Internal {
+            source: anyhow::anyhow!("Failed to lock connection: {}", e),
         })?;
 
         let sql = format!(
@@ -80,8 +75,8 @@ impl DatasetService for DuckDbDatasetService {
     ) -> Result<()> {
         self.ensure_table_loaded(&dataset_id)?;
 
-        let conn = self.pool.get().map_err(|e| DatasetError::Internal {
-            source: anyhow::anyhow!("Failed to get connection from pool: {}", e),
+        let conn = self.conn.lock().map_err(|e| DatasetError::Internal {
+            source: anyhow::anyhow!("Failed to lock connection: {}", e),
         })?;
 
         // Handle upsert
@@ -195,15 +190,16 @@ impl DatasetService for DuckDbDatasetService {
             sql.push_str(&format!(" OFFSET {}", off));
         }
 
-        let conn = self.pool.get().map_err(|e| DatasetError::Internal {
-            source: anyhow::anyhow!("Failed to get connection from pool: {}", e),
+        let conn = self.conn.lock().map_err(|e| DatasetError::Internal {
+            source: anyhow::anyhow!("Failed to lock connection: {}", e),
         })?;
 
-        // Execute query and get Arrow record batches
-        let arrow =
-            duckdb::arrow::query_arrow(&*conn, &sql, []).map_err(|e| DatasetError::Internal {
-                source: anyhow::anyhow!("Failed to execute query: {}", e),
-            })?;
+        let mut stmt = conn.prepare(&sql).map_err(|e| DatasetError::Internal {
+            source: anyhow::anyhow!("Failed to prepare statement: {}", e),
+        })?;
+        let arrow = stmt.query_arrow([]).map_err(|e| DatasetError::Internal {
+            source: anyhow::anyhow!("Failed to execute query: {}", e),
+        })?;
 
         Ok(Box::new(arrow))
     }

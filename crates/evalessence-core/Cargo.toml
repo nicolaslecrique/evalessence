@@ -17,7 +17,6 @@ atomicwrites = {workspace = true}
 arrow = {workspace = true}
 anyhow = {workspace = true}
 duckdb = { workspace = true }
-r2d2 = { workspace = true }
 
 [dev-dependencies]
 tempfile = {workspace = true}

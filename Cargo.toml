@@ -56,6 +56,5 @@ atomicwrites = "0.4"
 tempfile = "3"
 pretty_assertions = "1"
 arrow = "57"
-duckdb = { version = "1.4", features = ["bundled", "r2d2"] }
-r2d2 = "0.8"
+duckdb = { version = "1.4", features = ["bundled"] }
 cargo-machete = "0.1"
