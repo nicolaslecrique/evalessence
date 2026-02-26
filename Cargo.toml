@@ -55,6 +55,6 @@ slug = "0.1"
 atomicwrites = "0.4"
 tempfile = "3"
 pretty_assertions = "1"
-arrow = "57"
-duckdb = { version = "1.4", features = ["bundled"] }
+arrow = "56"
+duckdb = { version = "1.4", features = ["bundled", "vtab-arrow"] }
 cargo-machete = "0.1"

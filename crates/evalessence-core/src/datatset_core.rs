@@ -1,5 +1,7 @@
-use arrow::record_batch::RecordBatchReader;
-use duckdb::{Connection, params};
+use arrow::array::Array;
+use arrow::record_batch::{RecordBatch, RecordBatchIterator};
+use duckdb::Connection;
+use duckdb::vtab::arrow::{ArrowVTab, arrow_recordbatch_to_query_params};
 use evalessence_api::dataset::{
     DatasetError, DatasetService, Delete, OrderDirection, Result, SendableRecordBatchReader,
 };
@@ -81,34 +83,28 @@ impl DatasetService for DuckDbDatasetService {
 
         // Handle upsert
         if let Some(mut reader) = upsert {
-            // Create temporary table from record batches
-            let schema = reader.schema();
-            let mut batches = Vec::new();
+            let mut batches: Vec<RecordBatch> = Vec::new();
             while let Some(batch) = reader.next() {
                 batches.push(batch?);
             }
 
             if !batches.is_empty() {
-                // Convert batches to Arrow IPC and register
-                let temp_table = format!("{}_temp", dataset_id);
-
-                // Register Arrow batches as a view in DuckDB
-                conn.execute(&format!("DROP TABLE IF EXISTS {}", temp_table), [])
+                // Register ArrowVTab once so arrow_scan is available
+                conn.register_table_function::<ArrowVTab>("arrow_scan")
                     .map_err(|e| DatasetError::Internal {
-                        source: anyhow::anyhow!("Failed to drop temp table: {}", e),
+                        source: anyhow::anyhow!("Failed to register ArrowVTab: {}", e),
                     })?;
 
-                // Insert/merge logic - assuming there's an 'id' column for upsert
-                conn.execute(
-                    &format!(
-                        "INSERT OR REPLACE INTO {} SELECT * FROM arrow_scan(?)",
-                        dataset_id
-                    ),
-                    params![batches],
-                )
-                .map_err(|e| DatasetError::Internal {
-                    source: anyhow::anyhow!("Failed to upsert data: {}", e),
-                })?;
+                for batch in batches {
+                    let params = arrow_recordbatch_to_query_params(batch);
+                    conn.execute(
+                        &format!("INSERT OR REPLACE INTO {dataset_id} SELECT * FROM arrow(?, ?)"),
+                        params,
+                    )
+                    .map_err(|e| DatasetError::Internal {
+                        source: anyhow::anyhow!("Failed to upsert data: {}", e),
+                    })?;
+                }
             }
         }
 
@@ -116,8 +112,8 @@ impl DatasetService for DuckDbDatasetService {
         if let Some(delete_spec) = delete {
             match delete_spec {
                 Delete::ByIds(ids) => {
-                    let id_values: Vec<String> = (0..ids.len())
-                        .filter_map(|i| ids.value(i).to_string().into())
+                    let id_values: Vec<String> = (0..Array::len(&ids))
+                        .map(|i| ids.value(i).to_string())
                         .collect();
 
                     if !id_values.is_empty() {
@@ -201,6 +197,13 @@ impl DatasetService for DuckDbDatasetService {
             source: anyhow::anyhow!("Failed to execute query: {}", e),
         })?;
 
-        Ok(Box::new(arrow))
+        // Collect all batches eagerly so we can release the connection lock
+        let schema = arrow.get_schema();
+        let batches: Vec<RecordBatch> = arrow.collect();
+
+        Ok(Box::new(RecordBatchIterator::new(
+            batches.into_iter().map(Ok),
+            schema,
+        )))
     }
 }
