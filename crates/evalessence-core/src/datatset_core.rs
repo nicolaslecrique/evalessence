@@ -153,40 +153,7 @@ impl DatasetService for DuckDbDatasetService {
     ) -> Result<SendableRecordBatchReader> {
         self.ensure_table_loaded(&dataset_id)?;
 
-        let mut sql = format!("SELECT * FROM {dataset_id}");
-
-        if let Some(where_str) = where_clause {
-            sql.push_str(" WHERE ");
-            sql.push_str(&where_str);
-        }
-
-        if let Some(order_vec) = order_by
-            && !order_vec.is_empty()
-        {
-            let order_clause = order_vec
-                .iter()
-                .map(|(col, dir)| {
-                    let dir_str = match dir {
-                        OrderDirection::Asc => "ASC",
-                        OrderDirection::Desc => "DESC",
-                    };
-                    format!("{col} {dir_str}")
-                })
-                .collect::<Vec<_>>()
-                .join(", ");
-            sql.push_str(" ORDER BY ");
-            sql.push_str(&order_clause);
-        }
-
-        if let Some(lim) = limit {
-            sql.push_str(" LIMIT ");
-            sql.push_str(&lim.to_string());
-        }
-
-        if let Some(off) = offset {
-            sql.push_str(" OFFSET ");
-            sql.push_str(&off.to_string());
-        }
+        let sql = build_select_query(&dataset_id, where_clause, order_by, limit, offset);
 
         let conn = self.conn.lock().map_err(|e| DatasetError::Internal {
             source: anyhow::anyhow!("Failed to lock connection: {e}"),
@@ -208,4 +175,48 @@ impl DatasetService for DuckDbDatasetService {
             schema,
         )))
     }
+}
+
+fn build_select_query(
+    dataset_id: &str,
+    where_clause: Option<String>,
+    order_by: Option<Vec<(String, OrderDirection)>>,
+    limit: Option<usize>,
+    offset: Option<usize>,
+) -> String {
+    let mut sql = format!("SELECT * FROM {dataset_id}");
+
+    if let Some(where_str) = where_clause {
+        sql.push_str(" WHERE ");
+        sql.push_str(&where_str);
+    }
+
+    if let Some(order_vec) = order_by
+        && !order_vec.is_empty()
+    {
+        let order_clause = order_vec
+            .iter()
+            .map(|(col, dir)| {
+                let dir_str = match dir {
+                    OrderDirection::Asc => "ASC",
+                    OrderDirection::Desc => "DESC",
+                };
+                format!("{col} {dir_str}")
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+        sql.push_str(" ORDER BY ");
+        sql.push_str(&order_clause);
+    }
+
+    if let Some(lim) = limit {
+        sql.push_str(" LIMIT ");
+        sql.push_str(&lim.to_string());
+    }
+
+    if let Some(off) = offset {
+        sql.push_str(" OFFSET ");
+        sql.push_str(&off.to_string());
+    }
+    sql
 }
