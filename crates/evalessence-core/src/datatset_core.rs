@@ -1,3 +1,6 @@
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
+
 use arrow::array::Array;
 use arrow::record_batch::{RecordBatch, RecordBatchIterator};
 use duckdb::Connection;
@@ -5,8 +8,6 @@ use duckdb::vtab::arrow::{ArrowVTab, arrow_recordbatch_to_query_params};
 use evalessence_api::dataset::{
     DatasetError, DatasetService, Delete, OrderDirection, Result, SendableRecordBatchReader,
 };
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
 
 pub struct DuckDbDatasetService {
     conn: Arc<Mutex<Connection>>,
@@ -14,9 +15,13 @@ pub struct DuckDbDatasetService {
 }
 
 impl DuckDbDatasetService {
+    /// Create a new `DuckDbDatasetService` backed by parquet files at `base_path`.
+    ///
+    /// # Errors
+    /// Returns [`DatasetError::Internal`] if the in-memory `DuckDB` connection cannot be opened.
     pub fn new(base_path: impl AsRef<Path>) -> Result<Self> {
         let conn = Connection::open_in_memory().map_err(|e| DatasetError::Internal {
-            source: anyhow::anyhow!("Failed to open connection: {}", e),
+            source: anyhow::anyhow!("Failed to open connection: {e}"),
         })?;
 
         Ok(Self {
@@ -26,23 +31,22 @@ impl DuckDbDatasetService {
     }
 
     fn dataset_path(&self, dataset_id: &str) -> PathBuf {
-        self.base_path.join(format!("{}.parquet", dataset_id))
+        self.base_path.join(format!("{dataset_id}.parquet"))
     }
 
     fn ensure_table_loaded(&self, dataset_id: &str) -> Result<()> {
         let path = self.dataset_path(dataset_id);
         let conn = self.conn.lock().map_err(|e| DatasetError::Internal {
-            source: anyhow::anyhow!("Failed to lock connection: {}", e),
+            source: anyhow::anyhow!("Failed to lock connection: {e}"),
         })?;
 
         if path.exists() {
+            let path_str = path.display();
             let sql = format!(
-                "CREATE OR REPLACE TABLE {} AS SELECT * FROM read_parquet('{}')",
-                dataset_id,
-                path.display()
+                "CREATE OR REPLACE TABLE {dataset_id} AS SELECT * FROM read_parquet('{path_str}')"
             );
             conn.execute(&sql, []).map_err(|e| DatasetError::Internal {
-                source: anyhow::anyhow!("Failed to load table: {}", e),
+                source: anyhow::anyhow!("Failed to load table: {e}"),
             })?;
         }
 
@@ -52,16 +56,13 @@ impl DuckDbDatasetService {
     fn save_table(&self, dataset_id: &str) -> Result<()> {
         let path = self.dataset_path(dataset_id);
         let conn = self.conn.lock().map_err(|e| DatasetError::Internal {
-            source: anyhow::anyhow!("Failed to lock connection: {}", e),
+            source: anyhow::anyhow!("Failed to lock connection: {e}"),
         })?;
 
-        let sql = format!(
-            "COPY {} TO '{}' (FORMAT PARQUET)",
-            dataset_id,
-            path.display()
-        );
+        let path_str = path.display();
+        let sql = format!("COPY {dataset_id} TO '{path_str}' (FORMAT PARQUET)");
         conn.execute(&sql, []).map_err(|e| DatasetError::Internal {
-            source: anyhow::anyhow!("Failed to save table: {}", e),
+            source: anyhow::anyhow!("Failed to save table: {e}"),
         })?;
 
         Ok(())
@@ -78,21 +79,19 @@ impl DatasetService for DuckDbDatasetService {
         self.ensure_table_loaded(&dataset_id)?;
 
         let conn = self.conn.lock().map_err(|e| DatasetError::Internal {
-            source: anyhow::anyhow!("Failed to lock connection: {}", e),
+            source: anyhow::anyhow!("Failed to lock connection: {e}"),
         })?;
 
         // Handle upsert
-        if let Some(mut reader) = upsert {
-            let mut batches: Vec<RecordBatch> = Vec::new();
-            while let Some(batch) = reader.next() {
-                batches.push(batch?);
-            }
+        if let Some(reader) = upsert {
+            let batches: Vec<RecordBatch> = reader
+                .collect::<std::result::Result<_, _>>()
+                .map_err(DatasetError::ArrowError)?;
 
             if !batches.is_empty() {
-                // Register ArrowVTab once so arrow_scan is available
-                conn.register_table_function::<ArrowVTab>("arrow_scan")
+                conn.register_table_function::<ArrowVTab>("arrow")
                     .map_err(|e| DatasetError::Internal {
-                        source: anyhow::anyhow!("Failed to register ArrowVTab: {}", e),
+                        source: anyhow::anyhow!("Failed to register ArrowVTab: {e}"),
                     })?;
 
                 for batch in batches {
@@ -102,7 +101,7 @@ impl DatasetService for DuckDbDatasetService {
                         params,
                     )
                     .map_err(|e| DatasetError::Internal {
-                        source: anyhow::anyhow!("Failed to upsert data: {}", e),
+                        source: anyhow::anyhow!("Failed to upsert data: {e}"),
                     })?;
                 }
             }
@@ -119,21 +118,20 @@ impl DatasetService for DuckDbDatasetService {
                     if !id_values.is_empty() {
                         let placeholders = id_values
                             .iter()
-                            .map(|v| format!("'{}'", v.replace("'", "''")))
+                            .map(|v| format!("'{}'", v.replace('\'', "''")))
                             .collect::<Vec<_>>()
                             .join(", ");
 
-                        let sql =
-                            format!("DELETE FROM {} WHERE id IN ({})", dataset_id, placeholders);
+                        let sql = format!("DELETE FROM {dataset_id} WHERE id IN ({placeholders})");
                         conn.execute(&sql, []).map_err(|e| DatasetError::Internal {
-                            source: anyhow::anyhow!("Failed to delete by IDs: {}", e),
+                            source: anyhow::anyhow!("Failed to delete by IDs: {e}"),
                         })?;
                     }
                 }
                 Delete::Where(where_clause) => {
-                    let sql = format!("DELETE FROM {} WHERE {}", dataset_id, where_clause);
+                    let sql = format!("DELETE FROM {dataset_id} WHERE {where_clause}");
                     conn.execute(&sql, []).map_err(|e| DatasetError::Internal {
-                        source: anyhow::anyhow!("Failed to delete with WHERE: {}", e),
+                        source: anyhow::anyhow!("Failed to delete with WHERE: {e}"),
                     })?;
                 }
             }
@@ -155,46 +153,50 @@ impl DatasetService for DuckDbDatasetService {
     ) -> Result<SendableRecordBatchReader> {
         self.ensure_table_loaded(&dataset_id)?;
 
-        let mut sql = format!("SELECT * FROM {}", dataset_id);
+        let mut sql = format!("SELECT * FROM {dataset_id}");
 
         if let Some(where_str) = where_clause {
-            sql.push_str(&format!(" WHERE {}", where_str));
+            sql.push_str(" WHERE ");
+            sql.push_str(&where_str);
         }
 
-        if let Some(order_vec) = order_by {
-            if !order_vec.is_empty() {
-                let order_clause = order_vec
-                    .iter()
-                    .map(|(col, dir)| {
-                        let dir_str = match dir {
-                            OrderDirection::Asc => "ASC",
-                            OrderDirection::Desc => "DESC",
-                        };
-                        format!("{} {}", col, dir_str)
-                    })
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                sql.push_str(&format!(" ORDER BY {}", order_clause));
-            }
+        if let Some(order_vec) = order_by
+            && !order_vec.is_empty()
+        {
+            let order_clause = order_vec
+                .iter()
+                .map(|(col, dir)| {
+                    let dir_str = match dir {
+                        OrderDirection::Asc => "ASC",
+                        OrderDirection::Desc => "DESC",
+                    };
+                    format!("{col} {dir_str}")
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+            sql.push_str(" ORDER BY ");
+            sql.push_str(&order_clause);
         }
 
         if let Some(lim) = limit {
-            sql.push_str(&format!(" LIMIT {}", lim));
+            sql.push_str(" LIMIT ");
+            sql.push_str(&lim.to_string());
         }
 
         if let Some(off) = offset {
-            sql.push_str(&format!(" OFFSET {}", off));
+            sql.push_str(" OFFSET ");
+            sql.push_str(&off.to_string());
         }
 
         let conn = self.conn.lock().map_err(|e| DatasetError::Internal {
-            source: anyhow::anyhow!("Failed to lock connection: {}", e),
+            source: anyhow::anyhow!("Failed to lock connection: {e}"),
         })?;
 
         let mut stmt = conn.prepare(&sql).map_err(|e| DatasetError::Internal {
-            source: anyhow::anyhow!("Failed to prepare statement: {}", e),
+            source: anyhow::anyhow!("Failed to prepare statement: {e}"),
         })?;
         let arrow = stmt.query_arrow([]).map_err(|e| DatasetError::Internal {
-            source: anyhow::anyhow!("Failed to execute query: {}", e),
+            source: anyhow::anyhow!("Failed to execute query: {e}"),
         })?;
 
         // Collect all batches eagerly so we can release the connection lock
